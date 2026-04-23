@@ -1,0 +1,9 @@
+node_modules/
+dist/
+venv/
+.env
+*.log
+.DS_Store
+fabric-master-web/node_modules/
+fabric-master-web/dist/
+backend/venv/

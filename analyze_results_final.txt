@@ -1,0 +1,11 @@
+/Users/yms/.gemini/Fabric_Master/venv/lib/python3.9/site-packages/google/oauth2/__init__.py:40: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+/Users/yms/.gemini/Fabric_Master/venv/lib/python3.9/site-packages/google/auth/__init__.py:54: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+/Users/yms/.gemini/Fabric_Master/venv/lib/python3.9/site-packages/google/api_core/_python_version_support.py:242: FutureWarning: You are using a non-supported Python version (3.9.6). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.api_core.
+  warnings.warn(message, FutureWarning)
+
+========== Analyzing Delivery Note (116dTfVGk8tErpm-eCgjm3xdG3UCOjQeo) ==========
+Error Delivery Note: <HttpError 400 when requesting https://sheets.googleapis.com/v4/spreadsheets/116dTfVGk8tErpm-eCgjm3xdG3UCOjQeo?alt=json returned "This operation is not supported for this document". Details: "This operation is not supported for this document">
+
+========== Estimate Doc Title: 견적서 PDF 만들기_BodyTemplate_20260420_065922 ==========
