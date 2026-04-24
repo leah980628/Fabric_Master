@@ -3,6 +3,7 @@ const cors = require('cors');
 const { google } = require('googleapis');
 const { VertexAI } = require('@google-cloud/vertexai');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
@@ -14,6 +15,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/documents',
   'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/cloud-platform'
 ];
 
@@ -25,6 +27,7 @@ const auth = new google.auth.GoogleAuth({
 // AppSheet Master Sheet & Calendar ID
 const MASTER_SHEET_ID = '1BkiHbZda1rC_BSJP3cLoKFdJrCglyT89kp6HyHdhg7A';
 const CALENDAR_ID = 'leah@wenigood.com';
+const ROOT_DRIVE_FOLDER_ID = '1a2ZiGOVtxCMaa-luQhyP0T71w6zpGLZw'; 
 
 // Vertex AI Setup
 const PROJECT_ID = 'bagorderapp';
@@ -68,6 +71,70 @@ app.get('/api/consultations', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch consultations' });
+  }
+});
+
+app.post('/api/drive/folder', async (req, res) => {
+  console.log('--- Drive Folder Creation Started ---');
+  try {
+    const { folderName } = req.body;
+    const client = await auth.getClient();
+    const drive = google.drive({ version: 'v3', auth: client });
+
+    const now = new Date();
+    const yearStr = now.getFullYear().toString();
+    const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+
+    async function getOrCreateFolder(name, parentId) {
+      console.log(`Checking/Creating folder: "${name}" under parent: "${parentId}"`);
+      const q = `name = '${name}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      const list = await drive.files.list({ 
+        q, 
+        fields: 'files(id, name)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        corpora: 'allDrives'
+      });
+      
+      if (list.data.files && list.data.files.length > 0) {
+        return list.data.files[0].id;
+      } else {
+        const folder = await drive.files.create({
+          resource: {
+            name: name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+          },
+          fields: 'id',
+          supportsAllDrives: true
+        });
+        return folder.data.id;
+      }
+    }
+
+    // 1. 년도 폴더
+    const yearFolderId = await getOrCreateFolder(yearStr, ROOT_DRIVE_FOLDER_ID);
+    // 2. 월 폴더
+    const monthFolderId = await getOrCreateFolder(monthStr, yearFolderId);
+
+    // 3. 최종 주문 폴더
+    const finalFolder = await drive.files.create({
+      resource: {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [monthFolderId],
+      },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true
+    });
+
+    console.log('Success! WebLink:', finalFolder.data.webViewLink);
+    res.json({ success: true, webViewLink: finalFolder.data.webViewLink });
+
+  } catch (error) {
+    console.error('!!! Google Drive API Error !!!');
+    console.error('Message:', error.message);
+    res.status(500).json({ error: 'Failed to create drive folder', details: error.message });
   }
 });
 

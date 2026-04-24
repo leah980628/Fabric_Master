@@ -8,29 +8,45 @@ const BAG_TYPES = [
   "3-1번 U자형(앞뒤분리)"
 ];
 
-const FACTORY_LIST = [
+const FACTORY_LIST_DEFAULT = [
   "미정", "승화파트너스", "느티나무사랑", "에코씨엔티", "가나", "모카", "에코컴퍼니", "흥진상사"
 ];
 
-export default function CalculatorModal({ item, onClose, onSave }) {
+const FABRIC_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "성광", "신진", "대성", "유림", "태양"];
+const WEBBING_SUPPLIER_LIST_DEFAULT = ["미정", "성광", "동대문", "광일", "삼호"];
+const BIAS_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "성광", "유림"];
+const METAL_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "신진", "대성"];
+const PRINT_SUPPLIER_LIST_DEFAULT = ["미정", "나래인쇄", "하나인쇄", "태양인쇄", "성진인쇄"];
+const FREIGHT_SUPPLIER_LIST_DEFAULT = ["미정", "로젠택배", "경동택배", "대신화물", "직접납품"];
+
+export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelete, onStatusChange, PIPELINE_STAGES }) {
   const [activeTab, setActiveTab] = useState('가방사양');
 
   // 1. 기본 사양
   const [specs, setSpecs] = useState({
     type: "1번 기본형(가로*세로)",
+    fabricSupplier: "미정",
     w: 36, h: 36, d: 10, sideD: 10,
-    qty: item?.qty || 100, fabricWidth: 63, fabricPrice: 5000,
+    qty: item?.qty || 100, fabricWidth: 63, fabricPrice: 0,
     topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3
   });
 
+  const [fabricSuppliers, setFabricSuppliers] = useState(FABRIC_SUPPLIER_LIST_DEFAULT);
+  const [factories, setFactories] = useState(FACTORY_LIST_DEFAULT);
+  const [webbingSuppliers, setWebbingSuppliers] = useState(WEBBING_SUPPLIER_LIST_DEFAULT);
+  const [biasSuppliers, setBiasSuppliers] = useState(BIAS_SUPPLIER_LIST_DEFAULT);
+  const [metalSuppliers, setMetalSuppliers] = useState(METAL_SUPPLIER_LIST_DEFAULT);
+  const [printSuppliers, setPrintSuppliers] = useState(PRINT_SUPPLIER_LIST_DEFAULT);
+  const [freightSuppliers, setFreightSuppliers] = useState(FREIGHT_SUPPLIER_LIST_DEFAULT);
+
   // 1-1. 부가 원단 부속 (재끈, 안주머니, 기타)
   const [extras, setExtras] = useState({
-    hasStrap: false, strapW: 5, strapL: 60, strapQty: 2,
-    hasPocket: false, pocketW: 20, pocketH: 15, pocketQty: 1,
-    hasFrontPocket: false, frontPocketW: 25, frontPocketH: 20, frontPocketQty: 1,
-    hasSidePocket: false, sidePocketW: 15, sidePocketH: 18, sidePocketQty: 2,
-    hasTumblerPocket: false, tumblerPocketW: 12, tumblerPocketH: 20, tumblerPocketQty: 1,
-    hasOther: false, otherW: 10, otherH: 10, otherQty: 1
+    hasStrap: false, strapW: 5, strapL: 60, strapQty: 0,
+    hasPocket: false, pocketW: 20, pocketH: 15, pocketQty: 0,
+    hasFrontPocket: false, frontPocketW: 25, frontPocketH: 20, frontPocketQty: 0,
+    hasSidePocket: false, sidePocketW: 15, sidePocketH: 18, sidePocketQty: 0,
+    hasTumblerPocket: false, tumblerPocketW: 12, tumblerPocketH: 20, tumblerPocketQty: 0,
+    hasOther: false, otherW: 10, otherH: 10, otherQty: 0
   });
 
   const handleExtrasChange = (e) => {
@@ -42,25 +58,27 @@ export default function CalculatorModal({ item, onClose, onSave }) {
   const [costs, setCosts] = useState({
     factory: "미정",
     laborUnit: 0, laborContent: "",
-    webbingUnit: 0, webbingContent: "",
-    webbingFinishLen: 60, webbingSeam: 6, webbingPrice: 25000,
+    webbingSupplier: "미정", webbingUnit: 0, webbingContent: "",
+    webbingFinishLen: 60, webbingSeam: 6, webbingPrice: 0,
     webbingRollLen: 100, webbingLoss: 3, webbingQtyPerBag: 2,
-    hasOuterBias: false, outerBiasUnit: 0, outerBiasContent: "",
-    outerBiasFinishLen: 80, outerBiasSeam: 3, outerBiasPrice: 15000,
+    hasOuterBias: false, outerBiasSupplier: "미정", outerBiasUnit: 0, outerBiasContent: "",
+    outerBiasFinishLen: 80, outerBiasSeam: 3, outerBiasPrice: 0,
     outerBiasRollLen: 100, outerBiasLoss: 3, outerBiasQtyPerBag: 1,
-    hasInnerBias: false, innerBiasUnit: 0, innerBiasContent: "",
-    innerBiasFinishLen: 80, innerBiasSeam: 3, innerBiasPrice: 12000,
+    hasInnerBias: false, innerBiasSupplier: "미정", innerBiasUnit: 0, innerBiasContent: "",
+    innerBiasFinishLen: 80, innerBiasSeam: 3, innerBiasPrice: 0,
     innerBiasRollLen: 100, innerBiasLoss: 3, innerBiasQtyPerBag: 1,
-    metalUnit: 0, metalContent: "", hasMetal: false,
-    metalUnit2: 0, metalContent2: "", hasMetal2: false,
-    printUnit: 0, printContent: "",
-    printUnit2: 0, printContent2: "",
-    freightTotal: 0, freightContent: "",
+    metalSupplier: "미정", metalUnit: 0, metalContent: "", hasMetal: false,
+    metalSupplier2: "미정", metalUnit2: 0, metalContent2: "", hasMetal2: false,
+    printSupplier: "미정", printUnit: 0, printContent: "",
+    hasPrint2: false, printSupplier2: "미정", printUnit2: 0, printContent2: "",
+    freightSupplier: "미정", freightTotal: 0, freightContent: "",
+    hasFreight2: false, freightSupplier2: "미정", freightTotal2: 0, freightContent2: "",
   });
 
   // 3. 결제 및 추가 정보 (새로 추가된 필드들)
   const [extraInfo, setExtraInfo] = useState({
-    paymentMethod: '', tax1: '', tax2: '', paymentContent: '',
+    paymentMethod: '계좌이체', tax1: '', tax2: '', paymentContent: '',
+    paymentPic: '', paymentContact: '', paymentContact2: '', paymentEmail: '',
     deposit: 0, balance: 0,
     driveLink: '', proofImage: '',
     deliveryAddress: '', workOrderDate: '', prodCheck: '',
@@ -68,9 +86,27 @@ export default function CalculatorModal({ item, onClose, onSave }) {
   });
 
   const [bagSpecs, setBagSpecs] = useState({
-    fabric: '', webbing: '', printing: '', options: '',
-    targetDate: '', consultMemo: ''
+    fabric: item?.fabric || '',
+    webbing: item?.webbing || '',
+    printing: item?.printing || '',
+    options: item?.options || '',
+    targetDate: item?.targetDate || '',
+    consultMemo: item?.consultMemo || item?.memo || ''
   });
+
+  const [customerInfo, setCustomerInfo] = useState({
+    company: item?.company || '',
+    pic: item?.pic || '',
+    contact: item?.contact || '',
+    contact2: item?.contact2 || '',
+    email: item?.email || '',
+    consultType: item?.consultType || '신규'
+  });
+
+  const handleCustomerInfoChange = (e) => {
+    const { name, value } = e.target;
+    setCustomerInfo(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleBagSpecsChange = (e) => {
     const { name, value } = e.target;
@@ -102,8 +138,68 @@ export default function CalculatorModal({ item, onClose, onSave }) {
         newType = value;
       }
 
-      return { ...prev, [name]: name === 'type' ? value : numVal, type: newType };
+      return { ...prev, [name]: name === 'type' || name === 'fabricSupplier' ? value : numVal, type: newType };
     });
+  };
+
+  const handleAddSupplier = (type) => {
+    const name = prompt("새로운 업체 이름을 입력하세요:");
+    if (!name) return;
+
+    if (type === 'fabric') {
+      if (!fabricSuppliers.includes(name)) setFabricSuppliers(prev => [...prev, name]);
+      setSpecs(prev => ({ ...prev, fabricSupplier: name }));
+    } else if (type === 'webbing') {
+      if (!webbingSuppliers.includes(name)) setWebbingSuppliers(prev => [...prev, name]);
+      setCosts(prev => ({ ...prev, webbingSupplier: name }));
+    } else if (type === 'bias') {
+      if (!biasSuppliers.includes(name)) setBiasSuppliers(prev => [...prev, name]);
+      // 헤리는 선택된 항목에 따라 세팅이 필요할 수 있으나 일단 목록만 추가
+    } else if (type === 'metal') {
+      if (!metalSuppliers.includes(name)) setMetalSuppliers(prev => [...prev, name]);
+    } else if (type === 'print') {
+      if (!printSuppliers.includes(name)) setPrintSuppliers(prev => [...prev, name]);
+    } else if (type === 'freight') {
+      if (!freightSuppliers.includes(name)) setFreightSuppliers(prev => [...prev, name]);
+      setCosts(prev => ({ ...prev, freightSupplier: name }));
+    }
+  };
+
+  const handleAddFactory = () => {
+    const name = prompt("새로운 생산공장 이름을 입력하세요:");
+    if (name && !factories.includes(name)) {
+      setFactories(prev => [...prev, name]);
+      setCosts(prev => ({ ...prev, factory: name }));
+    }
+  };
+
+  const handleCreateDriveFolder = async () => {
+    try {
+      const today = new Date();
+      const yymmdd = today.toISOString().slice(2, 10).replace(/-/g, '');
+      const folderName = `${yymmdd}_${customerInfo.company}_(${specs.qty}장)`;
+
+      const apiBase = `http://${window.location.hostname}:3001`;
+      const response = await fetch(`${apiBase}/api/drive/folder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderName })
+      });
+
+      const resData = await response.json();
+      if (resData.success) {
+        setExtraInfo(prev => ({ ...prev, driveLink: resData.webViewLink }));
+        alert(`구글 드라이브에 폴더가 생성되었습니다:\n${folderName}`);
+      } else {
+        alert(`폴더 생성 실패: ${resData.error || '알 수 없는 오류'}`);
+        if (resData.error === 'Parent Folder ID is not configured') {
+          alert('서버 설정에 부모 폴더 ID가 필요합니다. 상위 폴더 ID를 알려주시면 바로 해결해 드릴 수 있습니다!');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert('서버 연결에 실패했습니다.');
+    }
   };
 
   const handleCostChange = (e) => {
@@ -281,7 +377,7 @@ export default function CalculatorModal({ item, onClose, onSave }) {
 
   const handleFinalSave = async () => {
     const data = {
-      ...specs, ...costs, ...extraInfo, ...bagSpecs,
+      ...specs, ...costs, ...extraInfo, ...bagSpecs, ...customerInfo,
       factory: costs.factory,
       marginInfo: result
     };
@@ -317,16 +413,60 @@ export default function CalculatorModal({ item, onClose, onSave }) {
   return (
     <div className="modal-overlay" style={{background: 'rgba(15, 23, 42, 0.6)'}}>
       <div className="modal-content" style={{maxWidth: '1300px', width: '98vw', height: '92vh'}}>
-        <div className="modal-header">
-          <div>
-            <div style={{fontSize:'12px', color:'#64748b', marginBottom:'2px'}}>주문 고유번호: {item?.id}</div>
-            <h2 style={{margin:0}}>{item?.company} - {item?.item}</h2>
+        <div className="modal-header" style={{padding: '16px 24px', display:'flex', justifyContent:'space-between', alignItems:'center', background: '#f8fafc', borderBottom: '1px solid #e2e8f0'}}>
+          <div style={{display:'flex', alignItems:'center', gap:'20px'}}>
+            <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+              <div style={{
+                padding:'4px 12px', 
+                borderRadius:'20px', 
+                fontSize:'12px', 
+                fontWeight:'700',
+                background: customerInfo.consultType === '신규' ? '#ecfdf5' : '#eff6ff',
+                color: customerInfo.consultType === '신규' ? '#10b981' : '#3b82f6',
+                border: `1px solid ${customerInfo.consultType === '신규' ? '#10b981' : '#3b82f6'}`
+              }}>
+                {customerInfo.consultType === '신규' ? '✨ 신규 상담' : '🔄 재상담'}
+              </div>
+              <div>
+                <div style={{fontSize:'12px', color:'#64748b', marginBottom:'2px'}}>주문 고유번호: <span style={{fontWeight:'700', color:'#1e293b'}}>{item?.id}</span></div>
+                <h2 style={{margin:0, fontSize:'20px', fontWeight:800}}>{customerInfo.company}</h2>
+              </div>
+            </div>
+
+            <div style={{display:'flex', gap:'8px', borderLeft:'1px solid #e2e8f0', paddingLeft:'20px'}}>
+              <button 
+                onClick={() => {
+                  const newItem = onCopy(item.id);
+                  if (newItem) onClose();
+                }}
+                style={{padding:'6px 14px', background:'white', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:600, display:'flex', alignItems:'center', gap:'6px', color:'#475569'}}>
+                📋 복사
+              </button>
+              <button 
+                onClick={() => {
+                  onDelete(item.id);
+                  onClose();
+                }}
+                style={{padding:'6px 14px', background:'#fff1f2', border:'1px solid #fecaca', color:'#ef4444', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:600, display:'flex', alignItems:'center', gap:'6px'}}>
+                🗑️ 삭제
+              </button>
+            </div>
+
+            <div style={{display:'flex', alignItems:'center', gap:'8px', background:'white', padding:'4px 12px', borderRadius:'8px', border:'1px solid #cbd5e1'}}>
+              <span style={{fontSize:'12px', fontWeight:700, color:'#64748b'}}>진행 단계:</span>
+              <select 
+                value={item.status} 
+                onChange={(e) => onStatusChange(item.id, e.target.value)}
+                style={{padding:'4px 8px', borderRadius:'6px', border:'none', background:'transparent', fontSize:'14px', fontWeight:800, color:'#4f46e5', cursor:'pointer', outline:'none'}}>
+                {PIPELINE_STAGES?.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+              </select>
+            </div>
           </div>
-          <button className="close-btn" onClick={onClose}>&times;</button>
+          <button className="close-btn" onClick={onClose} style={{fontSize: '28px', color: '#64748b', cursor: 'pointer', border: 'none', background: 'none'}}>&times;</button>
         </div>
 
         <div className="tab-button-group" style={{display: 'flex', background: '#f8fafc', padding: '0 24px', borderBottom: '1px solid #e2e8f0'}}>
-          {['가방사양', '사양계산', '결제정보', '생산 및 납품'].map(tab => (
+          {['상담정보', '가방사양', '사양계산', '결제정보', '생산 및 납품'].map(tab => (
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -348,6 +488,123 @@ export default function CalculatorModal({ item, onClose, onSave }) {
         
         <div className="modal-body" style={{flex: 1, display: 'flex', overflow: 'hidden'}}>
           
+          {/* TAB -1: 상담정보 */}
+          {activeTab === '상담정보' && (
+            <div style={{flex: 1, padding: '32px', overflowY: 'auto'}}>
+              <h3 className="section-title">기본 상담 및 고객 정보</h3>
+              <div style={{maxWidth:'800px', background:'white', padding:'32px', borderRadius:'16px', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.05)', border:'1px solid #e2e8f0'}}>
+                
+                <div style={{marginBottom:'24px'}}>
+                  <label style={{display:'block', fontSize:'14px', fontWeight:'700', color:'#64748b', marginBottom:'8px'}}>상담 유형 구분</label>
+                  <div style={{display:'flex', gap:'12px'}}>
+                    <button 
+                      onClick={() => setCustomerInfo(prev => ({...prev, consultType: '신규'}))}
+                      style={{
+                        flex:1, padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0', 
+                        background: customerInfo.consultType === '신규' ? '#10b981' : 'white',
+                        color: customerInfo.consultType === '신규' ? 'white' : '#64748b',
+                        fontWeight: 700, cursor:'pointer', transition:'all 0.2s'
+                      }}>
+                      ✨ 신규 상담
+                    </button>
+                    <button 
+                      onClick={() => setCustomerInfo(prev => ({...prev, consultType: '재상담'}))}
+                      style={{
+                        flex:1, padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0', 
+                        background: customerInfo.consultType === '재상담' ? '#3b82f6' : 'white',
+                        color: customerInfo.consultType === '재상담' ? 'white' : '#64748b',
+                        fontWeight: 700, cursor:'pointer', transition:'all 0.2s'
+                      }}>
+                      🔄 재상담
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px'}}>
+                  <div className="form-group">
+                    <label>업체명 (고객명)</label>
+                    <input type="text" name="company" value={customerInfo.company} onChange={handleCustomerInfoChange} className="form-control" style={{fontSize:'16px', padding:'12px'}} />
+                  </div>
+                  <div className="form-group">
+                    <label>담당자</label>
+                    <input type="text" name="pic" value={customerInfo.pic} onChange={handleCustomerInfoChange} className="form-control" style={{fontSize:'16px', padding:'12px'}} />
+                  </div>
+                </div>
+
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', marginTop:'20px'}}>
+                  <div className="form-group">
+                    <label>연락처 1</label>
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <input type="text" name="contact" value={customerInfo.contact} onChange={handleCustomerInfoChange} className="form-control" style={{fontSize:'16px', padding:'12px', flex:1}} />
+                      {customerInfo.contact && (
+                        <a 
+                          href={`tel:${customerInfo.contact}`}
+                          style={{
+                            display:'flex', alignItems:'center', justifyContent:'center', padding:'0 15px', 
+                            background:'#10b981', color:'white', borderRadius:'8px', textDecoration:'none', fontSize:'18px'
+                          }}
+                          title="전화 걸기">
+                          📞
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>연락처 2 (선택)</label>
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <input type="text" name="contact2" value={customerInfo.contact2} onChange={handleCustomerInfoChange} className="form-control" style={{fontSize:'16px', padding:'12px', flex:1}} />
+                      {customerInfo.contact2 && (
+                        <a 
+                          href={`tel:${customerInfo.contact2}`}
+                          style={{
+                            display:'flex', alignItems:'center', justifyContent:'center', padding:'0 15px', 
+                            background:'#3b82f6', color:'white', borderRadius:'8px', textDecoration:'none', fontSize:'18px'
+                          }}
+                          title="전화 걸기">
+                          📞
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{marginTop:'20px'}}>
+                  <label>이메일 주소</label>
+                  <input type="email" name="email" value={customerInfo.email} onChange={handleCustomerInfoChange} className="form-control" style={{fontSize:'16px', padding:'12px'}} />
+                </div>
+
+                <div className="form-group" style={{marginTop:'20px'}}>
+                  <label>사용 (납품) 예정일</label>
+                  <input type="date" name="targetDate" value={bagSpecs.targetDate} onChange={handleBagSpecsChange} className="form-control" style={{fontSize:'16px', padding:'12px'}} />
+                </div>
+
+                <div className="form-group" style={{marginTop:'32px', borderTop:'2px solid #f1f5f9', paddingTop:'24px'}}>
+                  <label style={{fontSize:'16px', fontWeight:'800', color:'#1e293b', display:'flex', alignItems:'center', gap:'8px', marginBottom:'12px'}}>
+                    <span>💬</span> 상세 상담 코멘트 (Long-text)
+                  </label>
+                  <textarea 
+                    name="consultMemo" 
+                    value={bagSpecs.consultMemo} 
+                    onChange={handleBagSpecsChange} 
+                    className="form-control" 
+                    rows="12" 
+                    style={{
+                      fontSize:'16px', 
+                      padding:'20px', 
+                      lineHeight:'1.6', 
+                      background:'#fffbeb', 
+                      borderColor:'#fef3c7', 
+                      borderRadius:'12px',
+                      boxShadow:'inset 0 2px 4px rgba(0,0,0,0.02)',
+                      resize:'vertical'
+                    }}
+                    placeholder="상세한 상담 내용, 고객의 요구사항 변화, 히스토리 등을 자유롭게 기록하세요."></textarea>
+                  <p style={{fontSize:'12px', color:'#94a3b8', marginTop:'8px'}}>* 칸 우측 하단을 드래그하여 높이를 조절할 수 있습니다.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 0: 가방사양 */}
           {activeTab === '가방사양' && (
             <div style={{flex: 1, padding: '32px', overflowY: 'auto'}}>
@@ -398,13 +655,32 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   </div>
                 </div>
                 <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-                  <div className="form-group">
-                    <label>사용(납품) 예정일</label>
-                    <input type="date" name="targetDate" value={bagSpecs.targetDate} onChange={handleBagSpecsChange} className="form-control" />
-                  </div>
                   <div className="form-group" style={{flex: 1, display: 'flex', flexDirection: 'column'}}>
-                    <label>상담 코멘트 (특이사항)</label>
-                    <textarea name="consultMemo" value={bagSpecs.consultMemo} onChange={handleBagSpecsChange} className="form-control" style={{flex: 1, minHeight: '150px'}} placeholder="고객 요청사항 및 특이사항 메모"></textarea>
+                    <label style={{fontSize:'15px', fontWeight:'800', color:'#1e293b', display:'flex', alignItems:'center', gap:'8px', marginBottom:'12px'}}>
+                      <span>💬</span> 상담 코멘트 (상세 기록)
+                    </label>
+                    <textarea 
+                      name="consultMemo" 
+                      value={bagSpecs.consultMemo} 
+                      onChange={handleBagSpecsChange} 
+                      className="form-control" 
+                      rows="20" 
+                      style={{
+                        flex: 1,
+                        fontSize:'16px', 
+                        padding:'20px', 
+                        lineHeight:'1.6', 
+                        background:'#fffbeb', 
+                        borderColor:'#fef3c7', 
+                        borderRadius:'12px',
+                        boxShadow:'inset 0 2px 4px rgba(0,0,0,0.02)',
+                        minHeight: '400px',
+                        resize:'vertical'
+                      }}
+                      placeholder="가방 사양과 관련된 상세한 상담 내용 및 요구사항을 기록하세요."></textarea>
+                    <p style={{fontSize:'12px', color:'#94a3b8', marginTop:'8px'}}>
+                      * 고객 연락처 정보는 <strong>[상담정보]</strong> 탭에서 관리 가능합니다.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -425,6 +701,16 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   <label>가방 형태</label>
                   <select name="type" value={specs.type} onChange={handleSpecChange} className="form-control">
                     {BAG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label style={{display:'flex', justifyContent:'space-between'}}>
+                    원단업체 선택
+                    <button onClick={() => handleAddSupplier('fabric')} style={{fontSize:'11px', padding:'2px 6px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                  </label>
+                  <select name="fabricSupplier" value={specs.fabricSupplier} onChange={handleSpecChange} className="form-control" style={{borderColor:'#3b82f6'}}>
+                    {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 
@@ -566,9 +852,13 @@ export default function CalculatorModal({ item, onClose, onSave }) {
               <div className="spec-calc-col" style={{flex: '1', padding: '24px', overflowY: 'auto'}}>
                 <h3 className="section-title">2. 부자재 & 가공비(공임) 입력</h3>
                 <div style={{background: '#f1f5f9', padding: '16px', borderRadius: '8px', marginBottom: '16px'}}>
-                  <div className="form-group"><label>생산 공장 선택</label>
+                  <div className="form-group">
+                    <label style={{display:'flex', justifyContent:'space-between'}}>
+                      생산 공장 선택
+                      <button onClick={handleAddFactory} style={{fontSize:'11px', padding:'2px 6px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 공장등록</button>
+                    </label>
                     <select name="factory" value={costs.factory} onChange={handleCostChange} className="form-control">
-                      {FACTORY_LIST.map(f => <option key={f} value={f}>{f}</option>)}
+                      {factories.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
                   </div>
                   <div className="form-group"><label>공임 (개당 재단/봉제비용)</label><input type="number" name="laborUnit" value={costs.laborUnit} onChange={handleCostChange} className="form-control"/></div>
@@ -580,7 +870,13 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                 <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>부자재 (1개당 단가)</h4>
                 <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'12px', marginBottom: '16px'}}>
                   <div className="form-group" style={{margin:0}}>
-                    <label style={{fontWeight:'700', color:'#1e293b', fontSize:'14px'}}>🧵 웨빙 자동 계산</label>
+                    <label style={{fontWeight:'700', color:'#1e293b', fontSize:'14px', display:'flex', justifyContent:'space-between'}}>
+                      <span>🧵 웨빙 자동 계산</span>
+                      <button onClick={() => handleAddSupplier('webbing')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                    </label>
+                    <select name="webbingSupplier" value={costs.webbingSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#3b82f6'}}>
+                      {webbingSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
                       <div className="form-group" style={{margin:0}}><label>완성길이(cm)</label><input type="number" name="webbingFinishLen" value={costs.webbingFinishLen} onChange={handleCostChange} className="form-control"/></div>
                       <div className="form-group" style={{margin:0}}><label>시접(cm)</label><input type="number" name="webbingSeam" value={costs.webbingSeam} onChange={handleCostChange} className="form-control"/></div>
@@ -627,8 +923,14 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   <div className="form-group" style={{margin:0, marginTop:'12px'}}>
                     <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'700', color:'#1e293b', fontSize:'14px'}}>
                       <input type="checkbox" name="hasOuterBias" checked={costs.hasOuterBias} onChange={(e) => setCosts(prev => ({...prev, hasOuterBias: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'#f59e0b'}} />
-                      🎨 겉헤리(바이어스) 자동계산
+                      <span>🎨 겉헤리(바이어스) 자동계산</span>
+                      <button onClick={() => handleAddSupplier('bias')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
                     </label>
+                    {costs.hasOuterBias && (
+                      <select name="outerBiasSupplier" value={costs.outerBiasSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#f59e0b'}}>
+                        {biasSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )}
                     {costs.hasOuterBias && (<>
                       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
                         <div className="form-group" style={{margin:0}}><label>완성길이(cm)</label><input type="number" name="outerBiasFinishLen" value={costs.outerBiasFinishLen} onChange={handleCostChange} className="form-control"/></div>
@@ -669,8 +971,14 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   <div className="form-group" style={{margin:0, marginTop:'12px'}}>
                     <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'700', color:'#1e293b', fontSize:'14px'}}>
                       <input type="checkbox" name="hasInnerBias" checked={costs.hasInnerBias} onChange={(e) => setCosts(prev => ({...prev, hasInnerBias: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'#8b5cf6'}} />
-                      🪡 속헤리(바이어스) 자동계산
+                      <span>🪡 속헤리(바이어스) 자동계산</span>
+                      <button onClick={() => handleAddSupplier('bias')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
                     </label>
+                    {costs.hasInnerBias && (
+                      <select name="innerBiasSupplier" value={costs.innerBiasSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#8b5cf6'}}>
+                        {biasSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )}
                     {costs.hasInnerBias && (<>
                       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
                         <div className="form-group" style={{margin:0}}><label>완성길이(cm)</label><input type="number" name="innerBiasFinishLen" value={costs.innerBiasFinishLen} onChange={handleCostChange} className="form-control"/></div>
@@ -709,8 +1017,14 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   <div className="form-group" style={{margin:0}}>
                     <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
                       <input type="checkbox" checked={costs.hasMetal} onChange={(e) => setCosts(prev => ({...prev, hasMetal: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                      금속/기타 부속
+                      <span>금속/기타 부속</span>
+                      <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
                     </label>
+                    {costs.hasMetal && (
+                      <select name="metalSupplier" value={costs.metalSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
+                        {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )}
                     {costs.hasMetal && (<>
                       <input type="number" name="metalUnit" value={costs.metalUnit} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
                       <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 내용</label>
@@ -720,8 +1034,14 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   <div className="form-group" style={{margin:0}}>
                     <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
                       <input type="checkbox" checked={costs.hasMetal2} onChange={(e) => setCosts(prev => ({...prev, hasMetal2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                      금속/기타 부속 2
+                      <span>금속/기타 부속 2</span>
+                      <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
                     </label>
+                    {costs.hasMetal2 && (
+                      <select name="metalSupplier2" value={costs.metalSupplier2} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
+                        {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )}
                     {costs.hasMetal2 && (<>
                       <input type="number" name="metalUnit2" value={costs.metalUnit2} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
                       <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 2 내용</label>
@@ -732,7 +1052,13 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                 <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>인쇄 (1개당 단가)</h4>
                 <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'12px', marginBottom:'16px'}}>
                   <div className="form-group" style={{margin:0}}>
-                    <label>인쇄 단가 (개당)</label>
+                    <label style={{display:'flex', justifyContent:'space-between'}}>
+                      인쇄 단가 (개당)
+                      <button onClick={() => handleAddSupplier('print')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                    </label>
+                    <select name="printSupplier" value={costs.printSupplier} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', borderColor:'#10b981'}}>
+                      {printSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                     <input type="number" name="printUnit" value={costs.printUnit} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}}/>
                     <div style={{fontSize:'12px', color:'#10b981', fontWeight:'600', marginBottom:'8px'}}>
                       → 인쇄 총비용: ₩ {(costs.printUnit * specs.qty).toLocaleString()} ({specs.qty}개)
@@ -741,22 +1067,51 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                     <textarea name="printContent" value={costs.printContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="인쇄 방식, 도수 등"></textarea>
                   </div>
                   <div className="form-group" style={{margin:0}}>
-                    <label>인쇄 2 단가 (개당)</label>
-                    <input type="number" name="printUnit2" value={costs.printUnit2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}}/>
-                    <div style={{fontSize:'12px', color:'#10b981', fontWeight:'600', marginBottom:'8px'}}>
-                      → 인쇄 2 총비용: ₩ {(costs.printUnit2 * specs.qty).toLocaleString()} ({specs.qty}개)
-                    </div>
-                    <label style={{fontSize:'11px', color:'#64748b'}}>인쇄 2 내용</label>
-                    <textarea name="printContent2" value={costs.printContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="인쇄 2 방식, 도수 등"></textarea>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
+                      <input type="checkbox" checked={costs.hasPrint2} onChange={(e) => setCosts(prev => ({...prev, hasPrint2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      <span>인쇄 2 단가 (개당)</span>
+                      <button onClick={(e) => { e.preventDefault(); handleAddSupplier('print'); }} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                    </label>
+                    {costs.hasPrint2 && (<>
+                      <select name="printSupplier2" value={costs.printSupplier2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', marginTop:'8px', borderColor:'#10b981'}}>
+                        {printSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <input type="number" name="printUnit2" value={costs.printUnit2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}}/>
+                      <div style={{fontSize:'12px', color:'#10b981', fontWeight:'600', marginBottom:'8px'}}>
+                        → 인쇄 2 총비용: ₩ {(costs.printUnit2 * specs.qty).toLocaleString()} ({specs.qty}개)
+                      </div>
+                      <label style={{fontSize:'11px', color:'#64748b'}}>인쇄 2 내용</label>
+                      <textarea name="printContent2" value={costs.printContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="인쇄 2 방식, 도수 등"></textarea>
+                    </>)}
                   </div>
                 </div>
                 <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>운임/소모품 (총액 기준)</h4>
                 <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'12px'}}>
-                  <div className="form-group" style={{margin:0}}>
-                    <label>운임/소모품 총비용</label>
-                    <input type="number" name="freightTotal" value={costs.freightTotal} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}}/>
-                    <label style={{fontSize:'11px', color:'#64748b'}}>운임/소모품 내용</label>
-                    <textarea name="freightContent" value={costs.freightContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="택배비, 포장지 등"></textarea>
+                  <div className="form-group" style={{margin:0, background:'#f8fafc', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0'}}>
+                    <label style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
+                      <span style={{fontWeight:'700'}}>운임/소모품 1</span>
+                      <button onClick={(e) => { e.preventDefault(); handleAddSupplier('freight'); }} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                    </label>
+                    <select name="freightSupplier" value={costs.freightSupplier} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', borderColor:'#64748b'}}>
+                      {freightSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input type="number" name="freightTotal" value={costs.freightTotal} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}} placeholder="총 비용 (원)"/>
+                    <textarea name="freightContent" value={costs.freightContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="운임 1 상세 내용"></textarea>
+                  </div>
+
+                  <div className="form-group" style={{margin:0, background:'#f8fafc', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'700'}}>
+                      <input type="checkbox" checked={costs.hasFreight2} onChange={(e) => setCosts(prev => ({...prev, hasFreight2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'#64748b'}} />
+                      <span>운임/소모품 2</span>
+                      <button onClick={(e) => { e.preventDefault(); handleAddSupplier('freight'); }} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                    </label>
+                    {costs.hasFreight2 && (<>
+                      <select name="freightSupplier2" value={costs.freightSupplier2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', marginTop:'8px', borderColor:'#64748b'}}>
+                        {freightSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <input type="number" name="freightTotal2" value={costs.freightTotal2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}} placeholder="총 비용 (원)"/>
+                      <textarea name="freightContent2" value={costs.freightContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="운임 2 상세 내용"></textarea>
+                    </>)}
                   </div>
                 </div>
               </div>
@@ -768,8 +1123,8 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                   <div style={{fontSize:'14px', color:'#64748b', marginBottom:'12px', fontWeight:'600'}}>가방 1개당 원가 breakdown</div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'4px'}}><span>원단비 ({result.netYard} Y)</span> <span>₩ {Math.round(result.fabricUnitCost).toLocaleString()}</span></div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'4px'}}><span>부자재 합계</span> <span>₩ {(costs.webbingUnit + costs.metalUnit + costs.metalUnit2 + costs.outerBiasUnit + costs.innerBiasUnit).toLocaleString()}</span></div>
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'4px'}}><span>인쇄비 (1+2)</span> <span>₩ {(costs.printUnit + costs.printUnit2).toLocaleString()}</span></div>
-                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'4px'}}><span>물류/소모품 분배</span> <span>₩ {Math.round(costs.freightTotal / specs.qty || 0).toLocaleString()}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'4px'}}><span>인쇄비 (1{costs.hasPrint2 && '+2'})</span> <span>₩ {(costs.printUnit + (costs.hasPrint2 ? costs.printUnit2 : 0)).toLocaleString()}</span></div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'4px'}}><span>물류/소모품 (1{costs.hasFreight2 && '+2'})</span> <span>₩ {Math.round((costs.freightTotal + (costs.hasFreight2 ? costs.freightTotal2 : 0)) / specs.qty || 0).toLocaleString()}</span></div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', paddingBottom:'8px', borderBottom:'1px dashed #cbd5e1'}}><span>공장 공임</span> <span>₩ {costs.laborUnit.toLocaleString()}</span></div>
                   <div style={{display:'flex', justifyContent:'space-between', marginTop:'12px', alignItems:'center'}}><span style={{fontSize:'15px', fontWeight:'700', color:'#1e293b'}}>총 1개당 시원가</span> <span style={{fontSize:'22px', fontWeight:'800'}}>₩ {Math.round(result.totalCostUnit).toLocaleString()}</span></div>
                 </div>
@@ -811,33 +1166,68 @@ export default function CalculatorModal({ item, onClose, onSave }) {
           {activeTab === '결제정보' && (
             <div style={{flex: 1, padding: '32px', overflowY: 'auto'}}>
               <h3 className="section-title">결제 상태 및 계산서 (세무/회계)</h3>
-              <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', maxWidth:'900px'}}>
-                <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-                  <div className="form-group">
-                    <label>결제 수량 / 금액 안내내용</label>
-                    <textarea name="paymentContent" value={extraInfo.paymentContent} onChange={handleExtraInfoChange} className="form-control" rows="4" placeholder="예: 무통장입금으로 50% 선금 결제 등"></textarea>
+              <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', maxWidth:'1100px'}}>
+                <div style={{display:'flex', flexDirection:'column', gap:'24px'}}>
+                  {/* 결제 담당자 정보를 왼쪽 상단으로 이동 */}
+                  <div style={{background:'#f8fafc', padding:'24px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
+                    <h4 style={{margin:'0 0 16px 0', fontSize:'16px', color:'#1e293b', display:'flex', alignItems:'center', gap:'8px'}}>
+                      <span>💳</span> 결제 담당자 정보
+                    </h4>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                      <div className="form-group" style={{margin:0}}>
+                        <label>결제 담당자 성함</label>
+                        <input type="text" name="paymentPic" value={extraInfo.paymentPic} onChange={handleExtraInfoChange} className="form-control" />
+                      </div>
+                      <div className="form-group" style={{margin:0}}>
+                        <label>담당자 이메일</label>
+                        <input type="email" name="paymentEmail" value={extraInfo.paymentEmail} onChange={handleExtraInfoChange} className="form-control" />
+                      </div>
+                      <div className="form-group" style={{margin:0}}>
+                        <label>담당자 연락처 1</label>
+                        <input type="text" name="paymentContact" value={extraInfo.paymentContact} onChange={handleExtraInfoChange} className="form-control" />
+                      </div>
+                      <div className="form-group" style={{margin:0}}>
+                        <label>담당자 연락처 2</label>
+                        <input type="text" name="paymentContact2" value={extraInfo.paymentContact2} onChange={handleExtraInfoChange} className="form-control" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label>결제방법</label>
-                    <input type="text" name="paymentMethod" value={extraInfo.paymentMethod} onChange={handleExtraInfoChange} className="form-control" placeholder="카드, 계좌이체 등"/>
-                  </div>
-                  <div className="form-group">
-                    <label>결제 선금 (입금액)</label>
-                    <input type="number" name="deposit" value={extraInfo.deposit} onChange={handleExtraInfoChange} className="form-control" />
-                  </div>
-                  <div className="form-group">
-                    <label>결제 잔금 (미수금)</label>
-                    <input type="number" name="balance" value={extraInfo.balance} onChange={handleExtraInfoChange} className="form-control" />
+
+                  <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+                    <div className="form-group">
+                      <label>결제 수량 / 금액 안내내용</label>
+                      <textarea name="paymentContent" value={extraInfo.paymentContent} onChange={handleExtraInfoChange} className="form-control" rows="3" placeholder="예: 무통장입금으로 50% 선금 결제 등"></textarea>
+                    </div>
+                    <div className="form-group">
+                      <label>결제방법</label>
+                      <select name="paymentMethod" value={extraInfo.paymentMethod} onChange={handleExtraInfoChange} className="form-control">
+                        <option value="계좌이체">계좌이체</option>
+                        <option value="카드결제">카드결제</option>
+                        <option value="현금영수증">현금영수증</option>
+                        <option value="기타">기타</option>
+                      </select>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
+                      <div className="form-group">
+                        <label>결제 선금 (입금액)</label>
+                        <input type="number" name="deposit" value={extraInfo.deposit} onChange={handleExtraInfoChange} className="form-control" />
+                      </div>
+                      <div className="form-group">
+                        <label>결제 잔금 (미수금)</label>
+                        <input type="number" name="balance" value={extraInfo.balance} onChange={handleExtraInfoChange} className="form-control" />
+                      </div>
+                    </div>
                   </div>
                 </div>
+
                 <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
                   <div className="form-group">
-                    <label>세금계산서 1 (발행상태/사업자번호)</label>
-                    <input type="text" name="tax1" value={extraInfo.tax1} onChange={handleExtraInfoChange} className="form-control" placeholder="계산서 발행 완료 등"/>
+                    <label>세금계산서 1 (발행일/예정일)</label>
+                    <input type="date" name="tax1" value={extraInfo.tax1} onChange={handleExtraInfoChange} className="form-control" />
                   </div>
                   <div className="form-group">
-                    <label>세금계산서 2 (비고)</label>
-                    <input type="text" name="tax2" value={extraInfo.tax2} onChange={handleExtraInfoChange} className="form-control" placeholder=""/>
+                    <label>세금계산서 2 (발행일/예정일)</label>
+                    <input type="date" name="tax2" value={extraInfo.tax2} onChange={handleExtraInfoChange} className="form-control" />
                   </div>
                 </div>
               </div>
@@ -852,8 +1242,15 @@ export default function CalculatorModal({ item, onClose, onSave }) {
                 <div style={{display:'flex', flexDirection:'column', gap:'16px', background:'#f8fafc', padding:'20px', borderRadius:'12px', border:'1px solid #e2e8f0'}}>
                   <h4 style={{margin:0, color:'#1e293b'}}>공장 및 작업 파일</h4>
                   <div className="form-group">
-                    <label>구글 드라이브 (작업지시서/도안 링크)</label>
-                    <div style={{display:'flex', gap:'8px'}}>
+                    <label style={{display:'flex', justifyContent:'space-between'}}>
+                      구글 드라이브 (작업지시서/도안 링크)
+                      <button 
+                        onClick={handleCreateDriveFolder}
+                        style={{fontSize:'11px', padding:'2px 8px', background:'var(--primary-color)', color:'white', border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:600}}>
+                        📁 폴더 생성
+                      </button>
+                    </label>
+                    <div style={{display:'flex', gap:'8px', marginTop:'4px'}}>
                       <input type="url" name="driveLink" value={extraInfo.driveLink} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} placeholder="https://drive.google.com/..." />
                       {extraInfo.driveLink && (
                         <button 

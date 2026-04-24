@@ -33,7 +33,9 @@ const DUMMY_DATA = [
   { id: '230320_04', company: 'C커피', pic: '박주말', qty: 100, factory: '흥진상사', date: '', status: '공장발주' }
 ];
 
-function KanbanCard({ item, onDragStart, onCardClick }) {
+function KanbanCard({ item, onDragStart, onCardClick, onCopy, onDelete }) {
+  const isNew = item.consultType === '신규';
+  
   return (
     <div 
       className="kanban-card"
@@ -42,21 +44,38 @@ function KanbanCard({ item, onDragStart, onCardClick }) {
       onClick={() => onCardClick(item)}
       title="클릭하여 사양 및 요척 계산"
     >
-      <div className="card-title">{item.company}</div>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'4px'}}>
+        <div className="card-title" style={{margin:0, flex:1}}>{item.company}</div>
+        <span style={{
+          fontSize:'10px', 
+          fontWeight:'700', 
+          padding:'2px 6px', 
+          borderRadius:'10px',
+          marginLeft:'6px',
+          whiteSpace:'nowrap',
+          background: isNew ? '#ecfdf5' : '#eff6ff',
+          color: isNew ? '#10b981' : '#3b82f6',
+          border: `1px solid ${isNew ? '#10b981' : '#3b82f6'}`
+        }}>
+          {isNew ? '✨ 신규' : '🔄 재상담'}
+        </span>
+      </div>
       <div className="card-subtitle">{item.id} | {item.pic}</div>
-      <div className="card-meta">
-        <span className="qty-tag">{item.qty}개</span>
-        {item.factory && item.factory !== '미정' && (
-           <span className="factory-tag" style={{
-             fontSize:'11px', background:'#e0e7ff', color:'#3730a3', padding:'2px 6px', borderRadius:'4px'
-           }}>{item.factory}</span>
-        )}
+      <div className="card-meta" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <div style={{display:'flex', gap:'4px'}}>
+          <span className="qty-tag">{item.qty}개</span>
+          {item.factory && item.factory !== '미정' && (
+            <span className="factory-tag" style={{
+              fontSize:'11px', background:'#e0e7ff', color:'#3730a3', padding:'2px 6px', borderRadius:'4px'
+            }}>{item.factory}</span>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function KanbanColumn({ title, items, onDrop, onDragOver, onDragStart, onCardClick }) {
+function KanbanColumn({ title, items, onDrop, onDragOver, onDragStart, onCardClick, onCopy, onDelete }) {
   // 공장발주 컬럼일 경우 아코디언 형태로 렌더링
   if (title === '공장발주') {
     const grouped = items.reduce((acc, item) => {
@@ -85,7 +104,7 @@ function KanbanColumn({ title, items, onDrop, onDragOver, onDragStart, onCardCli
               </div>
               <div className="factory-group-items">
                 {groupItems.map(item => (
-                  <KanbanCard key={item.id} item={item} onDragStart={onDragStart} onCardClick={onCardClick} />
+                  <KanbanCard key={item.id} item={item} onDragStart={onDragStart} onCardClick={onCardClick} onCopy={onCopy} onDelete={onDelete} />
                 ))}
               </div>
             </div>
@@ -111,7 +130,7 @@ function KanbanColumn({ title, items, onDrop, onDragOver, onDragStart, onCardCli
       </div>
       <div className="column-body">
         {items.map(item => (
-          <KanbanCard key={item.id} item={item} onDragStart={onDragStart} onCardClick={onCardClick} />
+          <KanbanCard key={item.id} item={item} onDragStart={onDragStart} onCardClick={onCardClick} onCopy={onCopy} onDelete={onDelete} />
         ))}
         {items.length === 0 && (
           <div style={{color:'#94a3b8', fontSize:'12px', textAlign:'center', marginTop:'20px'}}>비어있음</div>
@@ -130,6 +149,9 @@ function App() {
     e.dataTransfer.setData('itemId', id);
   };
 
+  const [trash, setTrash] = useState([]);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+
   const handleDragOver = (e) => {
     e.preventDefault();
   };
@@ -143,6 +165,73 @@ function App() {
       }
       return item;
     }));
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    setItems(items.map(item => {
+      if (item.id === id) {
+        return { ...item, status: newStatus };
+      }
+      return item;
+    }));
+  };
+
+  const handleDeleteItem = (id) => {
+    if (window.confirm('이 항목을 쓰레기통으로 이동하시겠습니까?')) {
+      const target = items.find(item => item.id === id);
+      if (target) {
+        setTrash(prev => [...prev, target]);
+        setItems(prev => prev.filter(item => item.id !== id));
+        if (calculatorItem?.id === id) setCalculatorItem(null);
+      }
+    }
+  };
+
+  const handleRestoreItem = (id) => {
+    const target = trash.find(item => item.id === id);
+    if (target) {
+      setItems(prev => [...prev, target]);
+      setTrash(prev => prev.filter(item => item.id !== id));
+    }
+  };
+
+  const handleEmptyTrash = () => {
+    if (window.confirm('쓰레기통을 완전히 비우시겠습니까? 삭제된 데이터는 복구할 수 없습니다.')) {
+      setTrash([]);
+    }
+  };
+
+  const handleCopyItem = (id) => {
+    const target = items.find(item => item.id === id);
+    if (!target) return;
+
+    const today = new Date();
+    const yy = String(today.getFullYear()).slice(-2);
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const datePrefix = `${yy}${mm}${dd}`;
+
+    const todayItems = items.filter(item => item.id && item.id.startsWith(datePrefix + '_'));
+    let nextNum = 1;
+    if (todayItems.length > 0) {
+      const maxNum = Math.max(...todayItems.map(item => {
+        const parts = item.id.split('_');
+        return parseInt(parts[1], 10) || 0;
+      }));
+      nextNum = maxNum + 1;
+    }
+    const newId = `${datePrefix}_${String(nextNum).padStart(2, '0')}`;
+
+    const newItem = {
+      ...target,
+      id: newId,
+      company: `${target.company} (복사본)`,
+      status: '상담진행' // 복사본은 처음 단계로
+    };
+
+    setItems([...items, newItem]);
+    alert('카드가 복사되었습니다.');
+    return newItem;
   };
 
   const handleCreateConsult = (info) => {
@@ -168,10 +257,15 @@ function App() {
         id: newId,
         company: info.company || '신규고객',
         pic: info.pic,
+        contact: info.contact,
+        contact2: info.contact2,
+        email: info.email,
+        consultType: info.consultType || '신규',
         qty: 0,
         factory: '미정',
         date: info.date || today.toISOString().split('T')[0],
-        status: '상담진행'
+        status: '상담진행',
+        consultMemo: info.memo
       };
       
       return [...prev, newItem];
@@ -193,11 +287,45 @@ function App() {
     setCalculatorItem(null);
   };
 
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredItems = items.filter(item => {
+    const s = searchTerm.toLowerCase();
+    return (
+      item.company?.toLowerCase().includes(s) ||
+      item.id?.toLowerCase().includes(s) ||
+      item.pic?.toLowerCase().includes(s)
+    );
+  });
+
   return (
     <div className="dashboard-container">
       <div className="header">
-        <h1>가방 생산 통합 관리 대시보드</h1>
+        <div style={{display:'flex', alignItems:'center', gap:'20px'}}>
+          <h1 style={{margin:0}}>가방 생산 통합 관리 대시보드</h1>
+          {/* 검색창 추가 */}
+          <div style={{position:'relative', width:'300px'}}>
+            <input 
+              type="text" 
+              placeholder="업체명, 번호, 담당자 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width:'100%', padding:'10px 15px 10px 40px', borderRadius:'10px', 
+                border:'1px solid #e2e8f0', fontSize:'14px', outline:'none',
+                boxShadow:'inset 0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            />
+            <span style={{position:'absolute', left:'15px', top:'50%', transform:'translateY(-50%)', fontSize:'16px'}}>🔍</span>
+          </div>
+        </div>
         <div className="button-group" style={{display: 'flex', gap: '12px'}}>
+          <button 
+            onClick={() => setIsTrashOpen(true)}
+            style={{padding: '10px 20px', background: '#94a3b8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)', position: 'relative'}}>
+            🗑️ 쓰레기통 
+            {trash.length > 0 && <span style={{position:'absolute', top:'-8px', right:'-8px', background:'#ef4444', color:'white', borderRadius:'50%', width:'20px', height:'20px', fontSize:'12px', display:'flex', alignItems:'center', justifyContent:'center'}}>{trash.length}</span>}
+          </button>
           <button 
             onClick={() => setIsConsultOpen(true)}
             style={{padding: '10px 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
@@ -209,6 +337,46 @@ function App() {
         </div>
       </div>
       
+      {isTrashOpen && (
+        <div className="modal-overlay" style={{background: 'rgba(15, 23, 42, 0.6)'}}>
+          <div className="modal-content" style={{width: '600px', height: '500px', display: 'flex', flexDirection: 'column'}}>
+            <div className="modal-header">
+              <h2>🗑️ 쓰레기통 (삭제된 항목)</h2>
+              <button className="close-btn" onClick={() => setIsTrashOpen(false)}>&times;</button>
+            </div>
+            <div style={{flex: 1, overflowY: 'auto', padding: '20px'}}>
+              {trash.length === 0 ? (
+                <div style={{textAlign:'center', color:'#94a3b8', marginTop:'50px'}}>비어있음</div>
+              ) : (
+                <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                  {trash.map(item => (
+                    <div key={item.id} style={{padding:'12px', background:'#f8fafc', borderRadius:'8px', border:'1px solid #e2e8f0', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                      <div>
+                        <div style={{fontWeight:'700'}}>{item.company}</div>
+                        <div style={{fontSize:'12px', color:'#64748b'}}>{item.id} | {item.pic}</div>
+                      </div>
+                      <button 
+                        onClick={() => handleRestoreItem(item.id)}
+                        style={{padding:'6px 12px', background:'#10b981', color:'white', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'13px'}}>
+                        되살리기 ↩️
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{padding:'20px', textAlign:'right'}}>
+              <button 
+                onClick={handleEmptyTrash}
+                disabled={trash.length === 0}
+                style={{padding:'10px 20px', background:trash.length > 0 ? '#ef4444' : '#fecaca', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:600}}>
+                쓰레기통 비우기 🔥
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isConsultOpen && (
         <ConsultationModal 
           onClose={() => setIsConsultOpen(false)} 
@@ -221,12 +389,16 @@ function App() {
           item={calculatorItem} 
           onClose={() => setCalculatorItem(null)} 
           onSave={handleSaveSpecs}
+          onCopy={handleCopyItem}
+          onDelete={handleDeleteItem}
+          onStatusChange={handleStatusChange}
+          PIPELINE_STAGES={PIPELINE_STAGES}
         />
       )}
       
       <div className="kanban-board">
         {PIPELINE_STAGES.map(stage => {
-          const stageItems = items.filter(i => i.status === stage);
+          const stageItems = filteredItems.filter(i => i.status === stage);
           return (
             <KanbanColumn 
               key={stage} 
@@ -236,6 +408,8 @@ function App() {
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onCardClick={setCalculatorItem}
+              onCopy={handleCopyItem}
+              onDelete={handleDeleteItem}
             />
           );
         })}
