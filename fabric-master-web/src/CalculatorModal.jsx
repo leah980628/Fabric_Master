@@ -8,9 +8,7 @@ const BAG_TYPES = [
   "3-1번 U자형(앞뒤분리)"
 ];
 
-const FACTORY_LIST_DEFAULT = [
-  "미정", "승화파트너스", "느티나무사랑", "에코씨엔티", "가나", "모카", "에코컴퍼니", "흥진상사"
-];
+const FACTORY_LIST_DEFAULT = ["미정"];
 
 const FABRIC_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "성광", "신진", "대성", "유림", "태양"];
 const WEBBING_SUPPLIER_LIST_DEFAULT = ["미정", "성광", "동대문", "광일", "삼호"];
@@ -22,14 +20,32 @@ const FREIGHT_SUPPLIER_LIST_DEFAULT = ["미정", "로젠택배", "경동택배",
 export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelete, onStatusChange, PIPELINE_STAGES }) {
   const [activeTab, setActiveTab] = useState('가방사양');
 
+  const initFromItem = (defaultObj, itemObj) => {
+    if (!itemObj) return defaultObj;
+    const result = { ...defaultObj };
+    for (const key in defaultObj) {
+      if (itemObj[key] !== undefined) {
+        result[key] = itemObj[key];
+      }
+    }
+    return result;
+  };
+
   // 1. 기본 사양
-  const [specs, setSpecs] = useState({
+  const [specs, setSpecs] = useState(() => initFromItem({
     type: "1번 기본형(가로*세로)",
     fabricSupplier: "미정",
+    fabricName: "메인 원단",
     w: 36, h: 36, d: 10, sideD: 10,
-    qty: item?.qty || 100, fabricWidth: 63, fabricPrice: 0,
-    topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3
-  });
+    qty: 100, fabricWidth: 63, fabricPrice: 0,
+    topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3,
+    useSeparateBodyFabric: false,
+    bodyParts: {
+      partA: { supplier: "미정", name: "", width: 63, price: 0 }, // 앞면 또는 메인
+      partB: { supplier: "미정", name: "", width: 63, price: 0 }, // 뒷면 또는 옆/밑면
+      partC: { supplier: "미정", name: "", width: 63, price: 0 }  // 기타 부위
+    }
+  }, item));
 
   const [fabricSuppliers, setFabricSuppliers] = useState(FABRIC_SUPPLIER_LIST_DEFAULT);
   const [factories, setFactories] = useState(FACTORY_LIST_DEFAULT);
@@ -40,22 +56,49 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   const [freightSuppliers, setFreightSuppliers] = useState(FREIGHT_SUPPLIER_LIST_DEFAULT);
 
   // 1-1. 부가 원단 부속 (재끈, 안주머니, 기타)
-  const [extras, setExtras] = useState({
-    hasStrap: false, strapW: 5, strapL: 60, strapQty: 0,
-    hasPocket: false, pocketW: 20, pocketH: 15, pocketQty: 0,
-    hasFrontPocket: false, frontPocketW: 25, frontPocketH: 20, frontPocketQty: 0,
-    hasSidePocket: false, sidePocketW: 15, sidePocketH: 18, sidePocketQty: 0,
-    hasTumblerPocket: false, tumblerPocketW: 12, tumblerPocketH: 20, tumblerPocketQty: 0,
-    hasOther: false, otherW: 10, otherH: 10, otherQty: 0
-  });
+  const [extras, setExtras] = useState(() => initFromItem({
+    hasStrap: false, strapW: 5, strapL: 60, strapQty: 0, strapTopSeam: 0, strapBottomSeam: 0, strapSideSeam: 0,
+    strapFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 },
+    hasPocket: false, pocketW: 20, pocketH: 15, pocketQty: 0, pocketTopSeam: 0, pocketBottomSeam: 0, pocketSideSeam: 0,
+    pocketFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 },
+    hasBottomPatch: false, bottomPatchW: 36, bottomPatchH: 10, bottomPatchQty: 0, bottomPatchTopSeam: 0, bottomPatchBottomSeam: 0, bottomPatchSideSeam: 0,
+    bottomPatchFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 },
+    hasFrontPocket: false, frontPocketW: 25, frontPocketH: 20, frontPocketQty: 0, frontPocketTopSeam: 0, frontPocketBottomSeam: 0, frontPocketSideSeam: 0,
+    frontPocketFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 },
+    hasSidePocket: false, sidePocketW: 15, sidePocketH: 18, sidePocketQty: 0, sidePocketTopSeam: 0, sidePocketBottomSeam: 0, sidePocketSideSeam: 0,
+    sidePocketFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 },
+    hasTumblerPocket: false, tumblerPocketW: 12, tumblerPocketH: 20, tumblerPocketQty: 0, tumblerPocketTopSeam: 0, tumblerPocketBottomSeam: 0, tumblerPocketSideSeam: 0,
+    tumblerPocketFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 },
+    hasLining: false, liningW: 36, liningH: 36, liningQty: 0, liningTopSeam: 0, liningBottomSeam: 0, liningSideSeam: 0,
+    liningFabric: { isCustom: false, supplier: "미정", name: "안감", width: 63, price: 0 },
+    hasOther: false, otherW: 10, otherH: 10, otherQty: 0, otherTopSeam: 0, otherBottomSeam: 0, otherSideSeam: 0,
+    otherFabric: { isCustom: false, supplier: "미정", name: "", width: 63, price: 0 }
+  }, item));
 
   const handleExtrasChange = (e) => {
     const { name, value, type, checked } = e.target;
     setExtras(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : (parseFloat(value) || 0) }));
   };
 
+  const handleExtraFabricChange = (part, field, value) => {
+    setExtras(prev => ({
+      ...prev,
+      [`${part}Fabric`]: { ...prev[`${part}Fabric`], [field]: field === 'isCustom' ? value : (field === 'supplier' || field === 'name' ? value : (parseFloat(value) || 0)) }
+    }));
+  };
+
+  const handleBodyPartFabricChange = (part, field, value) => {
+    setSpecs(prev => ({
+      ...prev,
+      bodyParts: {
+        ...prev.bodyParts,
+        [part]: { ...prev.bodyParts[part], [field]: field === 'supplier' || field === 'name' ? value : (parseFloat(value) || 0) }
+      }
+    }));
+  };
+
   // 2. 부자재, 인쇄 및 공임
-  const [costs, setCosts] = useState({
+  const [costs, setCosts] = useState(() => initFromItem({
     factory: "미정",
     laborUnit: 0, laborContent: "",
     webbingSupplier: "미정", webbingUnit: 0, webbingContent: "",
@@ -73,19 +116,53 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     hasPrint2: false, printSupplier2: "미정", printUnit2: 0, printContent2: "",
     freightSupplier: "미정", freightTotal: 0, freightContent: "",
     hasFreight2: false, freightSupplier2: "미정", freightTotal2: 0, freightContent2: "",
-  });
+  }, item));
 
   // 3. 결제 및 추가 정보 (새로 추가된 필드들)
-  const [extraInfo, setExtraInfo] = useState({
+  const [extraInfo, setExtraInfo] = useState(() => initFromItem({
     paymentMethod: '계좌이체', tax1: '', tax2: '', paymentContent: '',
     paymentPic: '', paymentContact: '', paymentContact2: '', paymentEmail: '',
     deposit: 0, balance: 0,
-    driveLink: '', proofImage: '',
+    driveLink: '', driveFolderId: '', proofImage: '',
     deliveryAddress: '', workOrderDate: '', prodCheck: '',
     factoryShipDate: '', trackingNum: ''
-  });
+  }, item));
+
+  const [proofFiles, setProofFiles] = useState([]);
+  const [selectedProof, setSelectedProof] = useState(null);
+  const [isFetchingProofs, setIsFetchingProofs] = useState(false);
+
+  // 공장 및 업체 목록 동적 로딩 (분류별 필터링)
+  useEffect(() => {
+    const fetchFactories = async () => {
+      try {
+        const apiBase = `http://${window.location.hostname}:3001`;
+        const res = await fetch(`${apiBase}/api/factories`);
+        const data = await res.json();
+        
+        const filterBy = (...categories) => {
+          const names = data
+            .filter(f => categories.includes(f.분류))
+            .map(f => f.공장이름);
+          return ["미정", ...names.filter(n => n !== "미정")];
+        };
+
+        setFactories(filterBy("봉재"));
+        setFabricSuppliers(filterBy("원단"));
+        setWebbingSuppliers(filterBy("웨빙"));
+        setBiasSuppliers(filterBy("웨빙"));
+        setPrintSuppliers(filterBy("인쇄업체", "인쇄"));
+        setMetalSuppliers(filterBy("금속부자재", "기타부자재")); 
+        setFreightSuppliers(filterBy("기타부자재")); 
+      } catch (err) {
+        console.error('Failed to fetch factories:', err);
+      }
+    };
+    fetchFactories();
+  }, []);
 
   const [bagSpecs, setBagSpecs] = useState({
+    productType: item?.productType || '에코백',
     fabric: item?.fabric || '',
     webbing: item?.webbing || '',
     printing: item?.printing || '',
@@ -114,12 +191,13 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   };
 
   // 4. 마진뷰
-  const [margin, setMargin] = useState({ percent: 30, customDeliveryUnit: 0 });
+  const [margin, setMargin] = useState(() => initFromItem({ percent: 30, customDeliveryUnit: 0 }, item));
 
   const [result, setResult] = useState({
     netYard: 0, grossYard: 0, fabricTotalCost: 0, fabricUnitCost: 0, 
     totalCostUnit: 0, totalCostAll: 0, marginAmountUnit: 0, 
-    finalDeliveryUnit: 0, finalDeliveryAll: 0, finalDeliveryAllVAT: 0
+    finalDeliveryUnit: 0, finalDeliveryAll: 0, finalDeliveryAllVAT: 0,
+    bodyNetYard: 0
   });
 
   const handleSpecChange = (e) => {
@@ -142,41 +220,73 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     });
   };
 
-  const handleAddSupplier = (type) => {
+  const handleAddSupplier = async (type) => {
     const name = prompt("새로운 업체 이름을 입력하세요:");
     if (!name) return;
 
-    if (type === 'fabric') {
-      if (!fabricSuppliers.includes(name)) setFabricSuppliers(prev => [...prev, name]);
-      setSpecs(prev => ({ ...prev, fabricSupplier: name }));
-    } else if (type === 'webbing') {
-      if (!webbingSuppliers.includes(name)) setWebbingSuppliers(prev => [...prev, name]);
-      setCosts(prev => ({ ...prev, webbingSupplier: name }));
-    } else if (type === 'bias') {
-      if (!biasSuppliers.includes(name)) setBiasSuppliers(prev => [...prev, name]);
-      // 헤리는 선택된 항목에 따라 세팅이 필요할 수 있으나 일단 목록만 추가
-    } else if (type === 'metal') {
-      if (!metalSuppliers.includes(name)) setMetalSuppliers(prev => [...prev, name]);
-    } else if (type === 'print') {
-      if (!printSuppliers.includes(name)) setPrintSuppliers(prev => [...prev, name]);
-    } else if (type === 'freight') {
-      if (!freightSuppliers.includes(name)) setFreightSuppliers(prev => [...prev, name]);
-      setCosts(prev => ({ ...prev, freightSupplier: name }));
+    let category = '';
+    if (type === 'fabric') category = '원단';
+    else if (type === 'webbing' || type === 'bias') category = '웨빙';
+    else if (type === 'metal') category = '금속부자재';
+    else if (type === 'print') category = '인쇄업체';
+    else if (type === 'freight') category = '기타부자재';
+
+    try {
+      const apiBase = `http://${window.location.hostname}:3001`;
+      await fetch(`${apiBase}/api/factories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 공장이름: name, 분류: category })
+      });
+
+      if (type === 'fabric') {
+        if (!fabricSuppliers.includes(name)) setFabricSuppliers(prev => [...prev, name]);
+        setSpecs(prev => ({ ...prev, fabricSupplier: name }));
+      } else if (type === 'webbing') {
+        if (!webbingSuppliers.includes(name)) setWebbingSuppliers(prev => [...prev, name]);
+        setCosts(prev => ({ ...prev, webbingSupplier: name }));
+      } else if (type === 'bias') {
+        if (!biasSuppliers.includes(name)) setBiasSuppliers(prev => [...prev, name]);
+      } else if (type === 'metal') {
+        if (!metalSuppliers.includes(name)) setMetalSuppliers(prev => [...prev, name]);
+      } else if (type === 'print') {
+        if (!printSuppliers.includes(name)) setPrintSuppliers(prev => [...prev, name]);
+      } else if (type === 'freight') {
+        if (!freightSuppliers.includes(name)) setFreightSuppliers(prev => [...prev, name]);
+        setCosts(prev => ({ ...prev, freightSupplier: name }));
+      }
+    } catch (err) {
+      console.error('Failed to add supplier:', err);
+      alert('업체 등록에 실패했습니다.');
     }
   };
 
-  const handleAddFactory = () => {
+  const handleAddFactory = async () => {
     const name = prompt("새로운 생산공장 이름을 입력하세요:");
     if (name && !factories.includes(name)) {
-      setFactories(prev => [...prev, name]);
-      setCosts(prev => ({ ...prev, factory: name }));
+      try {
+        const apiBase = `http://${window.location.hostname}:3001`;
+        await fetch(`${apiBase}/api/factories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 공장이름: name, 분류: '봉재' })
+        });
+        setFactories(prev => [...prev, name]);
+        setCosts(prev => ({ ...prev, factory: name }));
+      } catch (err) {
+        console.error('Failed to add factory:', err);
+        alert('공장 등록에 실패했습니다.');
+      }
     }
   };
 
   const handleCreateDriveFolder = async () => {
     try {
       const today = new Date();
-      const yymmdd = today.toISOString().slice(2, 10).replace(/-/g, '');
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const yymmdd = `${yy}${mm}${dd}`;
       const folderName = `${yymmdd}_${customerInfo.company}_(${specs.qty}장)`;
 
       const apiBase = `http://${window.location.hostname}:3001`;
@@ -188,7 +298,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
       const resData = await response.json();
       if (resData.success) {
-        setExtraInfo(prev => ({ ...prev, driveLink: resData.webViewLink }));
+        setExtraInfo(prev => ({ ...prev, driveLink: resData.webViewLink, driveFolderId: resData.folderId }));
         alert(`구글 드라이브에 폴더가 생성되었습니다:\n${folderName}`);
       } else {
         alert(`폴더 생성 실패: ${resData.error || '알 수 없는 오류'}`);
@@ -202,11 +312,83 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     }
   };
 
+  const fetchProofFiles = async () => {
+    if (!extraInfo.driveFolderId) {
+      alert("구글 드라이브 폴더가 지정되지 않았습니다. 먼저 '폴더 생성'을 완료하거나 폴더 ID를 연동해주세요.");
+      return;
+    }
+    setIsFetchingProofs(true);
+    try {
+      const apiBase = `http://${window.location.hostname}:3001`;
+      const res = await fetch(`${apiBase}/api/drive/proofs/${extraInfo.driveFolderId}`);
+      const data = await res.json();
+      if (data.success) {
+        setProofFiles(data.files || []);
+        if (data.files && data.files.length === 0) {
+          alert("폴더 내에 시안 이미지 파일(jpg, png 등)이 없습니다.\n예: 240430_업체명(100장)_시안.jpg 등 파일명에 '시안'이 포함되거나 이미지 확장자여야 합니다.");
+        }
+      } else {
+        alert("시안 이미지를 불러오는데 실패했습니다: " + data.error);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("네트워크 오류가 발생했습니다.");
+    } finally {
+      setIsFetchingProofs(false);
+    }
+  };
+
+  const handleGenerateEstimate = async () => {
+    if (!extraInfo.driveFolderId) {
+      alert("먼저 구글 드라이브 폴더를 생성해주세요 (결제 및 추가정보 탭).");
+      return;
+    }
+    
+    try {
+      const orderData = {
+        company: customerInfo.company,
+        pic: customerInfo.pic,
+        contact: customerInfo.contact,
+        email: customerInfo.email,
+        fabric: specs.fabricName,
+        size: `W: ${specs.w} x H: ${specs.h} x D: ${specs.d}`,
+        webbing: bagSpecs.webbing || costs.webbingContent,
+        print: bagSpecs.printing || costs.printContent,
+        options: bagSpecs.options,
+        qty: specs.qty,
+        unitPrice: result.finalDeliveryUnit,
+        totalAmount: result.finalDeliveryAll,
+        vat: result.finalDeliveryAllVAT - result.finalDeliveryAll,
+        finalAmount: result.finalDeliveryAllVAT,
+        paymentMethod: extraInfo.paymentMethod,
+        consultMemo: bagSpecs.consultMemo
+      };
+
+      const apiBase = `http://${window.location.hostname}:3001`;
+      const response = await fetch(`${apiBase}/api/estimate/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: extraInfo.driveFolderId, orderData })
+      });
+
+      const resData = await response.json();
+      if (resData.success) {
+        alert("견적서가 성공적으로 발행되었습니다!");
+        window.open(resData.pdfLink, '_blank');
+      } else {
+        alert(`견적서 발행 실패: ${resData.error || '알 수 없는 오류'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('서버 연결에 실패했습니다.');
+    }
+  };
+
   const handleCostChange = (e) => {
     const { name, value } = e.target;
     setCosts(prev => ({ 
       ...prev, 
-      [name]: (name === 'factory' || name.endsWith('Content')) ? value : parseFloat(value) || 0 
+      [name]: (name === 'factory' || name.endsWith('Content') || name.endsWith('Supplier')) ? value : (parseFloat(value) || 0)
     }));
   };
 
@@ -278,72 +460,199 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     let net = 0;
 
     try {
+      // --- 원단별 그룹화 계산 준비 ---
+      const fabricGroups = {}; // Key: "Supplier|FabricName"
+
+      const addToGroup = (supplier, name, yard, width, price) => {
+        if (!yard || yard <= 0) return;
+        const key = `${supplier}|${name}`;
+        if (!fabricGroups[key]) {
+          fabricGroups[key] = { supplier, name, yard: 0, width, price };
+        }
+        fabricGroups[key].yard += yard;
+      };
+
+      // 1. 몸판(Body) 계산
+      let bodyNetYard = 0;
+      const calculatePartYard = (pw, ph, count_override, fabric) => {
+        const fw_local = (fabric.width * 2.54) - 3;
+        const count = count_override || Math.floor(fw_local / pw);
+        if (count > 0) return (ph / count) / 91.44;
+        return 0;
+      };
+
+      // 부위별 원단 결정 헬퍼
+      const getBodyFabric = (partKey) => {
+        if (s.useSeparateBodyFabric) {
+          return {
+            supplier: s.bodyParts[partKey].supplier,
+            name: s.bodyParts[partKey].name || "몸판 원단",
+            width: s.bodyParts[partKey].width,
+            price: s.bodyParts[partKey].price
+          };
+        }
+        return {
+          supplier: s.fabricSupplier,
+          name: s.fabricName || "메인 원단",
+          width: s.fabricWidth,
+          price: s.fabricPrice
+        };
+      };
+
       if (s.type === "1번 기본형(가로*세로)") {
           const pw = s.w + (s.sideSeam * 2);
           const ph = (s.h * 2) + s.topSeam + s.bottomSeam;
-          const count = Math.floor(fw / pw);
-          if (count > 0) net = (ph / count) / 91.44;
+          const fabric = getBodyFabric('partA');
+          const yard = calculatePartYard(pw, ph, null, fabric);
+          addToGroup(fabric.supplier, fabric.name, yard, fabric.width, fabric.price);
+          bodyNetYard = yard;
       } else if (s.type === "1-1번 분리형(가로*세로)") {
           const pw = s.w + (s.sideSeam * 2);
           const ph = s.h + s.topSeam + s.bottomSeam;
-          const count = Math.floor(fw / pw);
-          if (count > 0) net = ((ph / count) / 91.44) * 2;
+          
+          const f1 = getBodyFabric('partA');
+          const yard1 = calculatePartYard(pw, ph, null, f1);
+          addToGroup(f1.supplier, f1.name, yard1, f1.width, f1.price);
+          
+          const f2 = getBodyFabric('partB');
+          const yard2 = calculatePartYard(pw, ph, null, f2);
+          addToGroup(f2.supplier, f2.name, yard2, f2.width, f2.price);
+          
+          bodyNetYard = yard1 + yard2;
       } else if (s.type === "2번 기본형(가로*세로*밑면)") {
           const pw = s.w + (s.sideSeam * 2);
           const ph = (s.h * 2) + s.d + s.topSeam + s.bottomSeam;
-          const count = Math.floor(fw / pw);
-          if (count > 0) net = (ph / count) / 91.44;
+          const fabric = getBodyFabric('partA');
+          const yard = calculatePartYard(pw, ph, null, fabric);
+          addToGroup(fabric.supplier, fabric.name, yard, fabric.width, fabric.price);
+          bodyNetYard = yard;
       } else if (s.type === "3번 옆면형(가로*세로*밑면*옆면)") {
-          const count1 = Math.floor(fw / (s.w + (s.sideSeam * 2)));
-          const count2 = Math.floor(fw / (s.sideD + (s.sideSeam * 2)));
-          if (count1 > 0 && count2 > 0) {
-            net = ((((s.h * 2) + s.d + s.topSeam + s.bottomSeam) / count1) / 91.44) + 
-                  (((s.h + s.topSeam + s.bottomSeam) / count2) / 91.44);
-          }
+          const f1 = getBodyFabric('partA');
+          const pw1 = s.w + (s.sideSeam * 2);
+          const ph1 = (s.h * 2) + s.d + s.topSeam + s.bottomSeam;
+          const yard1 = calculatePartYard(pw1, ph1, null, f1);
+          addToGroup(f1.supplier, f1.name, yard1, f1.width, f1.price);
+
+          const f2 = getBodyFabric('partB');
+          const pw2 = s.sideD + (s.sideSeam * 2);
+          const ph2 = s.h + s.topSeam + s.bottomSeam;
+          const yard2 = calculatePartYard(pw2, ph2, null, f2);
+          addToGroup(f2.supplier, f2.name, yard2, f2.width, f2.price);
+
+          bodyNetYard = yard1 + yard2;
       } else if (s.type === "3-1번 U자형(앞뒤분리)") {
-          const count1 = Math.floor(fw / (s.w + (s.sideSeam * 2)));
-          const count2 = Math.floor(fw / (s.sideD + (s.sideSeam * 2)));
-          if (count1 > 0 && count2 > 0) {
-            net = (((s.h + s.topSeam + s.bottomSeam) / count1) / 91.44 * 2) + 
-                  ((((s.h * 2) + s.w + s.topSeam + s.bottomSeam) / count2) / 91.44);
-          }
+          const f1 = getBodyFabric('partA'); // 앞면
+          const f2 = getBodyFabric('partB'); // 뒷면
+          const f3 = getBodyFabric('partC'); // U자 옆면
+          
+          const pw12 = s.w + (s.sideSeam * 2);
+          const ph12 = s.h + s.topSeam + s.bottomSeam;
+          const yard1 = calculatePartYard(pw12, ph12, null, f1);
+          const yard2 = calculatePartYard(pw12, ph12, null, f2);
+          
+          const pw3 = s.sideD + (s.sideSeam * 2);
+          const ph3 = (s.h * 2) + s.w + s.topSeam + s.bottomSeam;
+          const yard3 = calculatePartYard(pw3, ph3, null, f3);
+          
+          addToGroup(f1.supplier, f1.name, yard1, f1.width, f1.price);
+          addToGroup(f2.supplier, f2.name, yard2, f2.width, f2.price);
+          addToGroup(f3.supplier, f3.name, yard3, f3.width, f3.price);
+          
+          bodyNetYard = yard1 + yard2 + yard3;
       }
 
-      // 부가 원단 부속 요척 추가 (시접 미포함, 순수 사이즈 기준)
-      let strapYard = 0, pocketYard = 0, frontPocketYard = 0, sidePocketYard = 0, tumblerPocketYard = 0, otherYard = 0;
+      // 2. 부가 원단 부속 요척 추가
+      const getExtraFabric = (key) => {
+        const info = extras[`${key}Fabric`];
+        if (info.isCustom) {
+          return { supplier: info.supplier, name: info.name || `${key} 원단`, width: info.width, price: info.price };
+        }
+        return { supplier: s.fabricSupplier, name: s.fabricName || "메인 원단", width: s.fabricWidth, price: s.fabricPrice };
+      };
+
+      let strapYard = 0, pocketYard = 0, bottomPatchYard = 0, frontPocketYard = 0, sidePocketYard = 0, tumblerPocketYard = 0, liningYard = 0, otherYard = 0;
+      
       if (extras.hasStrap && extras.strapW > 0 && extras.strapL > 0) {
-        const strapCount = Math.floor(fw / extras.strapW);
-        if (strapCount > 0) strapYard = (extras.strapL / strapCount) / 91.44 * extras.strapQty;
+        const f = getExtraFabric('strap');
+        const pw = extras.strapW + (extras.strapSideSeam * 2);
+        const ph = extras.strapL + extras.strapTopSeam + extras.strapBottomSeam;
+        strapYard = calculatePartYard(pw, ph, null, f) * extras.strapQty;
+        addToGroup(f.supplier, f.name, strapYard, f.width, f.price);
       }
       if (extras.hasPocket && extras.pocketW > 0 && extras.pocketH > 0) {
-        const pocketCount = Math.floor(fw / extras.pocketW);
-        if (pocketCount > 0) pocketYard = (extras.pocketH / pocketCount) / 91.44 * extras.pocketQty;
+        const f = getExtraFabric('pocket');
+        const pw = extras.pocketW + (extras.pocketSideSeam * 2);
+        const ph = extras.pocketH + extras.pocketTopSeam + extras.pocketBottomSeam;
+        pocketYard = calculatePartYard(pw, ph, null, f) * extras.pocketQty;
+        addToGroup(f.supplier, f.name, pocketYard, f.width, f.price);
+      }
+      if (extras.hasBottomPatch && extras.bottomPatchW > 0 && extras.bottomPatchH > 0) {
+        const f = getExtraFabric('bottomPatch');
+        const pw = extras.bottomPatchW + (extras.bottomPatchSideSeam * 2);
+        const ph = extras.bottomPatchH + extras.bottomPatchTopSeam + extras.bottomPatchBottomSeam;
+        bottomPatchYard = calculatePartYard(pw, ph, null, f) * extras.bottomPatchQty;
+        addToGroup(f.supplier, f.name, bottomPatchYard, f.width, f.price);
       }
       if (extras.hasFrontPocket && extras.frontPocketW > 0 && extras.frontPocketH > 0) {
-        const c = Math.floor(fw / extras.frontPocketW);
-        if (c > 0) frontPocketYard = (extras.frontPocketH / c) / 91.44 * extras.frontPocketQty;
+        const f = getExtraFabric('frontPocket');
+        const pw = extras.frontPocketW + (extras.frontPocketSideSeam * 2);
+        const ph = extras.frontPocketH + extras.frontPocketTopSeam + extras.frontPocketBottomSeam;
+        frontPocketYard = calculatePartYard(pw, ph, null, f) * extras.frontPocketQty;
+        addToGroup(f.supplier, f.name, frontPocketYard, f.width, f.price);
       }
       if (extras.hasSidePocket && extras.sidePocketW > 0 && extras.sidePocketH > 0) {
-        const c = Math.floor(fw / extras.sidePocketW);
-        if (c > 0) sidePocketYard = (extras.sidePocketH / c) / 91.44 * extras.sidePocketQty;
+        const f = getExtraFabric('sidePocket');
+        const pw = extras.sidePocketW + (extras.sidePocketSideSeam * 2);
+        const ph = extras.sidePocketH + extras.sidePocketTopSeam + extras.sidePocketBottomSeam;
+        sidePocketYard = calculatePartYard(pw, ph, null, f) * extras.sidePocketQty;
+        addToGroup(f.supplier, f.name, sidePocketYard, f.width, f.price);
       }
       if (extras.hasTumblerPocket && extras.tumblerPocketW > 0 && extras.tumblerPocketH > 0) {
-        const c = Math.floor(fw / extras.tumblerPocketW);
-        if (c > 0) tumblerPocketYard = (extras.tumblerPocketH / c) / 91.44 * extras.tumblerPocketQty;
+        const f = getExtraFabric('tumblerPocket');
+        const pw = extras.tumblerPocketW + (extras.tumblerPocketSideSeam * 2);
+        const ph = extras.tumblerPocketH + extras.tumblerPocketTopSeam + extras.tumblerPocketBottomSeam;
+        tumblerPocketYard = calculatePartYard(pw, ph, null, f) * extras.tumblerPocketQty;
+        addToGroup(f.supplier, f.name, tumblerPocketYard, f.width, f.price);
+      }
+      if (extras.hasLining && extras.liningW > 0 && extras.liningH > 0) {
+        const f = getExtraFabric('lining');
+        const pw = extras.liningW + (extras.liningSideSeam * 2);
+        const ph = extras.liningH + extras.liningTopSeam + extras.liningBottomSeam;
+        liningYard = calculatePartYard(pw, ph, null, f) * extras.liningQty;
+        addToGroup(f.supplier, f.name, liningYard, f.width, f.price);
       }
       if (extras.hasOther && extras.otherW > 0 && extras.otherH > 0) {
-        const otherCount = Math.floor(fw / extras.otherW);
-        if (otherCount > 0) otherYard = (extras.otherH / otherCount) / 91.44 * extras.otherQty;
+        const f = getExtraFabric('other');
+        const pw = extras.otherW + (extras.otherSideSeam * 2);
+        const ph = extras.otherH + extras.otherTopSeam + extras.otherBottomSeam;
+        otherYard = calculatePartYard(pw, ph, null, f) * extras.otherQty;
+        addToGroup(f.supplier, f.name, otherYard, f.width, f.price);
       }
-      net += strapYard + pocketYard + frontPocketYard + sidePocketYard + tumblerPocketYard + otherYard;
 
-      const netYard = Math.max(0, Math.round(net * 100) / 100);
-      const grossYard = Math.max(0, Math.ceil((netYard * s.qty) * (1 + (s.loss / 100))));
-      const fabricTotalCost = grossYard * s.fabricPrice;
-      const fabricUnitCost = s.qty > 0 ? (fabricTotalCost / s.qty) : 0;
+      // 3. 최종 원단 비용 및 그룹화 데이터 정리
+      let totalFabricCostAll = 0;
+      const orderGroups = {}; // { supplier: [ {name, yard, price, cost} ] }
+
+      Object.values(fabricGroups).forEach(group => {
+        const grossYard = Math.ceil((group.yard * s.qty) * (1 + (s.loss / 100)));
+        const cost = grossYard * group.price;
+        totalFabricCostAll += cost;
+
+        if (!orderGroups[group.supplier]) orderGroups[group.supplier] = [];
+        orderGroups[group.supplier].push({
+          name: group.name,
+          width: group.width,
+          netYard: Math.round(group.yard * 100) / 100,
+          grossYard,
+          price: group.price,
+          cost
+        });
+      });
+
+      const fabricUnitCost = s.qty > 0 ? (totalFabricCostAll / s.qty) : 0;
+      const netYard = Math.round((bodyNetYard + strapYard + pocketYard + bottomPatchYard + frontPocketYard + sidePocketYard + tumblerPocketYard + liningYard + otherYard) * 100) / 100;
 
       const allocatedFreight = s.qty > 0 ? (costs.freightTotal / s.qty) : 0;
-      
       const totalCostUnit = fabricUnitCost + costs.webbingUnit + costs.outerBiasUnit + costs.innerBiasUnit + costs.metalUnit + costs.metalUnit2 + costs.laborUnit + costs.printUnit + costs.printUnit2 + allocatedFreight;
       
       let marginAmountUnit = 0;
@@ -357,14 +666,21 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
       }
 
       setResult({
-        netYard, grossYard, fabricTotalCost, fabricUnitCost,
+        netYard, 
+        fabricTotalCost: totalFabricCostAll, 
+        fabricUnitCost,
+        orderGroups, // 업체별 그룹 데이터 추가
         strapYard: Math.round(strapYard * 100) / 100,
         pocketYard: Math.round(pocketYard * 100) / 100,
+        bottomPatchYard: Math.round(bottomPatchYard * 100) / 100,
         frontPocketYard: Math.round(frontPocketYard * 100) / 100,
         sidePocketYard: Math.round(sidePocketYard * 100) / 100,
         tumblerPocketYard: Math.round(tumblerPocketYard * 100) / 100,
+        liningYard: Math.round(liningYard * 100) / 100,
         otherYard: Math.round(otherYard * 100) / 100,
-        totalCostUnit, totalCostAll: totalCostUnit * s.qty,
+        bodyNetYard: Math.round(bodyNetYard * 100) / 100,
+        totalCostUnit, 
+        totalCostAll: totalCostUnit * s.qty,
         marginAmountUnit, finalDeliveryUnit, 
         finalDeliveryAll: finalDeliveryUnit * s.qty,
         finalDeliveryAllVAT: (finalDeliveryUnit * s.qty) * 1.1
@@ -377,7 +693,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
   const handleFinalSave = async () => {
     const data = {
-      ...specs, ...costs, ...extraInfo, ...bagSpecs, ...customerInfo,
+      ...specs, ...costs, ...extras, ...extraInfo, ...bagSpecs, ...customerInfo, ...margin,
       factory: costs.factory,
       marginInfo: result
     };
@@ -611,6 +927,32 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
               <h3 className="section-title">가방 제작 사양 (상담 기록)</h3>
               <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', maxWidth:'900px'}}>
                 <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+                  {/* 품목 구분 추가 */}
+                  <div className="form-group">
+                    <label style={{fontSize:'14px', fontWeight:'700', color:'#64748b', marginBottom:'8px'}}>품목 구분</label>
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <button 
+                        onClick={() => setBagSpecs(prev => ({...prev, productType: '에코백'}))}
+                        style={{
+                          flex:1, padding:'10px', borderRadius:'8px', border:'1px solid #e2e8f0', 
+                          background: bagSpecs.productType === '에코백' ? '#4f46e5' : 'white',
+                          color: bagSpecs.productType === '에코백' ? 'white' : '#64748b',
+                          fontWeight: 700, cursor:'pointer'
+                        }}>
+                        👜 에코백
+                      </button>
+                      <button 
+                        onClick={() => setBagSpecs(prev => ({...prev, productType: '파우치'}))}
+                        style={{
+                          flex:1, padding:'10px', borderRadius:'8px', border:'1px solid #e2e8f0', 
+                          background: bagSpecs.productType === '파우치' ? '#8b5cf6' : 'white',
+                          color: bagSpecs.productType === '파우치' ? 'white' : '#64748b',
+                          fontWeight: 700, cursor:'pointer'
+                        }}>
+                        👝 파우치
+                      </button>
+                    </div>
+                  </div>
                   <div className="form-group">
                     <label>수량 (개)</label>
                     <input type="number" name="qty" value={specs.qty} onChange={handleSpecChange} className="form-control" style={{borderColor:'#10b981', borderWidth:'2px'}}/>
@@ -722,128 +1064,437 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                 </div>
 
                 <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>시접 및 원단 단가</h4>
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', background:'white', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0'}}>
-                  <div className="form-group" style={{margin:0}}><label>원단폭(inch)</label><input type="number" name="fabricWidth" value={specs.fabricWidth} onChange={handleSpecChange} className="form-control"/></div>
-                  <div className="form-group" style={{margin:0}}><label>야드단가(원)</label><input type="number" name="fabricPrice" value={specs.fabricPrice} onChange={handleSpecChange} className="form-control"/></div>
-                  <div className="form-group" style={{margin:0}}><label>시접 상단(cm)</label><input type="number" name="topSeam" value={specs.topSeam} onChange={handleSpecChange} className="form-control"/></div>
-                  <div className="form-group" style={{margin:0}}><label>시접 하단(cm)</label><input type="number" name="bottomSeam" value={specs.bottomSeam} onChange={handleSpecChange} className="form-control"/></div>
-                  <div className="form-group" style={{margin:0}}><label>시접 좌우(cm)</label><input type="number" name="sideSeam" value={specs.sideSeam} onChange={handleSpecChange} className="form-control"/></div>
-                  <div className="form-group" style={{margin:0}}><label>로스율(%)</label><input type="number" name="loss" value={specs.loss} onChange={handleSpecChange} className="form-control"/></div>
+                <div style={{background:'white', padding:'16px', borderRadius:'8px', border:'1px solid #e2e8f0', marginBottom:'16px'}}>
+                  <div className="form-group"><label>메인 원단명</label><input type="text" name="fabricName" value={specs.fabricName} onChange={(e) => setSpecs(prev => ({...prev, fabricName: e.target.value}))} className="form-control" placeholder="예: 10수 캔버스 화이트"/></div>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}>
+                    <div className="form-group" style={{margin:0}}><label>원단폭(inch)</label><input type="number" name="fabricWidth" value={specs.fabricWidth} onChange={handleSpecChange} className="form-control"/></div>
+                    <div className="form-group" style={{margin:0}}><label>야드단가(원)</label><input type="number" name="fabricPrice" value={specs.fabricPrice} onChange={handleSpecChange} className="form-control"/></div>
+                  </div>
+                  
+                  <div style={{marginTop:'12px', paddingTop:'12px', borderTop:'1px solid #f1f5f9'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontSize:'13px', fontWeight:'700', color:'#1e293b'}}>
+                      <input type="checkbox" checked={specs.useSeparateBodyFabric} onChange={(e) => setSpecs(prev => ({...prev, useSeparateBodyFabric: e.target.checked}))} style={{width:'16px', height:'16px'}} />
+                      몸판 부위별 원단 분리 사용 (앞/뒤/옆 등)
+                    </label>
+                    {specs.useSeparateBodyFabric && (
+                      <div style={{marginTop:'12px', display:'flex', flexDirection:'column', gap:'12px', paddingLeft:'24px'}}>
+                        {/* Part A: 앞면/메인 */}
+                        <div style={{padding:'10px', background:'#f8fafc', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                          <div style={{fontSize:'12px', fontWeight:700, marginBottom:'6px', color:'#3b82f6'}}>부위 A (앞면/메인)</div>
+                          <select value={specs.bodyParts.partA.supplier} onChange={(e) => handleBodyPartFabricChange('partA', 'supplier', e.target.value)} className="form-control" style={{fontSize:'12px', marginBottom:'4px'}}>
+                            {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <input type="text" value={specs.bodyParts.partA.name} onChange={(e) => handleBodyPartFabricChange('partA', 'name', e.target.value)} className="form-control" style={{fontSize:'12px', marginBottom:'4px'}} placeholder="원단명"/>
+                          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                            <input type="number" value={specs.bodyParts.partA.width} onChange={(e) => handleBodyPartFabricChange('partA', 'width', e.target.value)} className="form-control" style={{fontSize:'12px'}} placeholder="폭(in)"/>
+                            <input type="number" value={specs.bodyParts.partA.price} onChange={(e) => handleBodyPartFabricChange('partA', 'price', e.target.value)} className="form-control" style={{fontSize:'12px'}} placeholder="단가(원)"/>
+                          </div>
+                        </div>
+                        {/* Part B: 뒷면/옆면 */}
+                        {["1-1번 분리형(가로*세로)", "3번 옆면형(가로*세로*밑면*옆면)", "3-1번 U자형(앞뒤분리)"].includes(specs.type) && (
+                          <div style={{padding:'10px', background:'#f8fafc', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                            <div style={{fontSize:'12px', fontWeight:700, marginBottom:'6px', color:'#3b82f6'}}>부위 B ({specs.type.includes('3번') ? '옆/밑면' : '뒷면'})</div>
+                            <select value={specs.bodyParts.partB.supplier} onChange={(e) => handleBodyPartFabricChange('partB', 'supplier', e.target.value)} className="form-control" style={{fontSize:'12px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={specs.bodyParts.partB.name} onChange={(e) => handleBodyPartFabricChange('partB', 'name', e.target.value)} className="form-control" style={{fontSize:'12px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={specs.bodyParts.partB.width} onChange={(e) => handleBodyPartFabricChange('partB', 'width', e.target.value)} className="form-control" style={{fontSize:'12px'}} placeholder="폭(in)"/>
+                              <input type="number" value={specs.bodyParts.partB.price} onChange={(e) => handleBodyPartFabricChange('partB', 'price', e.target.value)} className="form-control" style={{fontSize:'12px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        {/* Part C: U자 옆면 */}
+                        {specs.type === "3-1번 U자형(앞뒤분리)" && (
+                          <div style={{padding:'10px', background:'#f8fafc', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                            <div style={{fontSize:'12px', fontWeight:700, marginBottom:'6px', color:'#3b82f6'}}>부위 C (U자형 옆면)</div>
+                            <select value={specs.bodyParts.partC.supplier} onChange={(e) => handleBodyPartFabricChange('partC', 'supplier', e.target.value)} className="form-control" style={{fontSize:'12px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={specs.bodyParts.partC.name} onChange={(e) => handleBodyPartFabricChange('partC', 'name', e.target.value)} className="form-control" style={{fontSize:'12px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={specs.bodyParts.partC.width} onChange={(e) => handleBodyPartFabricChange('partC', 'width', e.target.value)} className="form-control" style={{fontSize:'12px'}} placeholder="폭(in)"/>
+                              <input type="number" value={specs.bodyParts.partC.price} onChange={(e) => handleBodyPartFabricChange('partC', 'price', e.target.value)} className="form-control" style={{fontSize:'12px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'12px'}}>
+                    <div className="form-group" style={{margin:0}}><label>시접 상단(cm)</label><input type="number" name="topSeam" value={specs.topSeam} onChange={handleSpecChange} className="form-control"/></div>
+                    <div className="form-group" style={{margin:0}}><label>시접 하단(cm)</label><input type="number" name="bottomSeam" value={specs.bottomSeam} onChange={handleSpecChange} className="form-control"/></div>
+                    <div className="form-group" style={{margin:0}}><label>시접 좌우(cm)</label><input type="number" name="sideSeam" value={specs.sideSeam} onChange={handleSpecChange} className="form-control"/></div>
+                  </div>
+                  <div className="form-group" style={{margin:0, marginTop:'8px'}}><label>로스율(%)</label><input type="number" name="loss" value={specs.loss} onChange={handleSpecChange} className="form-control"/></div>
+                  <div style={{marginTop:'12px', fontSize:'13px', color:'#10b981', fontWeight:'700', padding:'8px', background:'#ecfdf5', borderRadius:'4px', border:'1px solid #a7f3d0', display:'inline-block'}}>
+                    → 메인 원단 소요: {result.bodyNetYard || 0} yard/개
+                  </div>
                 </div>
 
-                {/* 부가 원단 부속 토글 */}
-                <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px', marginTop:'16px'}}>부가 원단 부속 (선택)</h4>
-                <div style={{background:'white', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0', marginBottom:'16px'}}>
                   {/* 재끈 */}
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
-                    <input type="checkbox" name="hasStrap" checked={extras.hasStrap} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                    + 재끈 (원단끈)
-                  </label>
-                  {extras.hasStrap && (
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'4px', paddingLeft:'26px'}}>
-                      <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="strapW" value={extras.strapW} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>길이(cm)</label><input type="number" name="strapL" value={extras.strapL} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="strapQty" value={extras.strapQty} onChange={handleExtrasChange} className="form-control"/></div>
-                    </div>
-                  )}
-                  {extras.hasStrap && (
-                    <div style={{paddingLeft:'26px', marginBottom:'12px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
-                      → 재끈 소요: {result.strapYard} yard/개
-                    </div>
-                  )}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasStrap" checked={extras.hasStrap} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 재끈 (원단끈)
+                    </label>
+                    {extras.hasStrap && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="strapW" value={extras.strapW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>길이(cm)</label><input type="number" name="strapL" value={extras.strapL} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="strapQty" value={extras.strapQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="strapTopSeam" value={extras.strapTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="strapBottomSeam" value={extras.strapBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="strapSideSeam" value={extras.strapSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.strapFabric.isCustom} onChange={(e) => handleExtraFabricChange('strap', 'isCustom', e.target.checked)} />
+                          재끈용 원단 별도 설정
+                        </label>
+                        {extras.strapFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.strapFabric.supplier} onChange={(e) => handleExtraFabricChange('strap', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.strapFabric.name} onChange={(e) => handleExtraFabricChange('strap', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.strapFabric.width} onChange={(e) => handleExtraFabricChange('strap', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.strapFabric.price} onChange={(e) => handleExtraFabricChange('strap', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 재끈 소요: {result.strapYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* 안주머니 */}
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
-                    <input type="checkbox" name="hasPocket" checked={extras.hasPocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                    + 안주머니
-                  </label>
-                  {extras.hasPocket && (
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'4px', paddingLeft:'26px'}}>
-                      <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="pocketW" value={extras.pocketW} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="pocketH" value={extras.pocketH} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="pocketQty" value={extras.pocketQty} onChange={handleExtrasChange} className="form-control"/></div>
-                    </div>
-                  )}
-                  {extras.hasPocket && (
-                    <div style={{paddingLeft:'26px', marginBottom:'12px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
-                      → 안주머니 소요: {result.pocketYard} yard/개
-                    </div>
-                  )}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasPocket" checked={extras.hasPocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 안주머니
+                    </label>
+                    {extras.hasPocket && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="pocketW" value={extras.pocketW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="pocketH" value={extras.pocketH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="pocketQty" value={extras.pocketQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="pocketTopSeam" value={extras.pocketTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="pocketBottomSeam" value={extras.pocketBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="pocketSideSeam" value={extras.pocketSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.pocketFabric.isCustom} onChange={(e) => handleExtraFabricChange('pocket', 'isCustom', e.target.checked)} />
+                          안주머니용 원단 별도 설정
+                        </label>
+                        {extras.pocketFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.pocketFabric.supplier} onChange={(e) => handleExtraFabricChange('pocket', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.pocketFabric.name} onChange={(e) => handleExtraFabricChange('pocket', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.pocketFabric.width} onChange={(e) => handleExtraFabricChange('pocket', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.pocketFabric.price} onChange={(e) => handleExtraFabricChange('pocket', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 안주머니 소요: {result.pocketYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 밑단뎃뎀 */}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasBottomPatch" checked={extras.hasBottomPatch} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 밑단뎃뎀
+                    </label>
+                    {extras.hasBottomPatch && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="bottomPatchW" value={extras.bottomPatchW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="bottomPatchH" value={extras.bottomPatchH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="bottomPatchQty" value={extras.bottomPatchQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="bottomPatchTopSeam" value={extras.bottomPatchTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="bottomPatchBottomSeam" value={extras.bottomPatchBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="bottomPatchSideSeam" value={extras.bottomPatchSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.bottomPatchFabric.isCustom} onChange={(e) => handleExtraFabricChange('bottomPatch', 'isCustom', e.target.checked)} />
+                          밑단뎃뎀용 원단 별도 설정
+                        </label>
+                        {extras.bottomPatchFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.bottomPatchFabric.supplier} onChange={(e) => handleExtraFabricChange('bottomPatch', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.bottomPatchFabric.name} onChange={(e) => handleExtraFabricChange('bottomPatch', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.bottomPatchFabric.width} onChange={(e) => handleExtraFabricChange('bottomPatch', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.bottomPatchFabric.price} onChange={(e) => handleExtraFabricChange('bottomPatch', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 밑단뎃뎀 소요: {result.bottomPatchYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* 앞주머니 */}
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
-                    <input type="checkbox" name="hasFrontPocket" checked={extras.hasFrontPocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                    + 앞주머니
-                  </label>
-                  {extras.hasFrontPocket && (
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'4px', paddingLeft:'26px'}}>
-                      <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="frontPocketW" value={extras.frontPocketW} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="frontPocketH" value={extras.frontPocketH} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="frontPocketQty" value={extras.frontPocketQty} onChange={handleExtrasChange} className="form-control"/></div>
-                    </div>
-                  )}
-                  {extras.hasFrontPocket && (
-                    <div style={{paddingLeft:'26px', marginBottom:'12px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
-                      → 앞주머니 소요: {result.frontPocketYard} yard/개
-                    </div>
-                  )}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasFrontPocket" checked={extras.hasFrontPocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 앞주머니
+                    </label>
+                    {extras.hasFrontPocket && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="frontPocketW" value={extras.frontPocketW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="frontPocketH" value={extras.frontPocketH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="frontPocketQty" value={extras.frontPocketQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="frontPocketTopSeam" value={extras.frontPocketTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="frontPocketBottomSeam" value={extras.frontPocketBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="frontPocketSideSeam" value={extras.frontPocketSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.frontPocketFabric.isCustom} onChange={(e) => handleExtraFabricChange('frontPocket', 'isCustom', e.target.checked)} />
+                          앞주머니용 원단 별도 설정
+                        </label>
+                        {extras.frontPocketFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.frontPocketFabric.supplier} onChange={(e) => handleExtraFabricChange('frontPocket', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.frontPocketFabric.name} onChange={(e) => handleExtraFabricChange('frontPocket', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.frontPocketFabric.width} onChange={(e) => handleExtraFabricChange('frontPocket', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.frontPocketFabric.price} onChange={(e) => handleExtraFabricChange('frontPocket', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 앞주머니 소요: {result.frontPocketYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* 옆주머니 */}
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
-                    <input type="checkbox" name="hasSidePocket" checked={extras.hasSidePocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                    + 옆주머니
-                  </label>
-                  {extras.hasSidePocket && (
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'4px', paddingLeft:'26px'}}>
-                      <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="sidePocketW" value={extras.sidePocketW} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="sidePocketH" value={extras.sidePocketH} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="sidePocketQty" value={extras.sidePocketQty} onChange={handleExtrasChange} className="form-control"/></div>
-                    </div>
-                  )}
-                  {extras.hasSidePocket && (
-                    <div style={{paddingLeft:'26px', marginBottom:'12px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
-                      → 옆주머니 소요: {result.sidePocketYard} yard/개
-                    </div>
-                  )}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasSidePocket" checked={extras.hasSidePocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 옆주머니
+                    </label>
+                    {extras.hasSidePocket && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="sidePocketW" value={extras.sidePocketW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="sidePocketH" value={extras.sidePocketH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="sidePocketQty" value={extras.sidePocketQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="sidePocketTopSeam" value={extras.sidePocketTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="sidePocketBottomSeam" value={extras.sidePocketBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="sidePocketSideSeam" value={extras.sidePocketSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.sidePocketFabric.isCustom} onChange={(e) => handleExtraFabricChange('sidePocket', 'isCustom', e.target.checked)} />
+                          옆주머니용 원단 별도 설정
+                        </label>
+                        {extras.sidePocketFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.sidePocketFabric.supplier} onChange={(e) => handleExtraFabricChange('sidePocket', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.sidePocketFabric.name} onChange={(e) => handleExtraFabricChange('sidePocket', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.sidePocketFabric.width} onChange={(e) => handleExtraFabricChange('sidePocket', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.sidePocketFabric.price} onChange={(e) => handleExtraFabricChange('sidePocket', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 옆주머니 소요: {result.sidePocketYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* 텀블러주머니 */}
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
-                    <input type="checkbox" name="hasTumblerPocket" checked={extras.hasTumblerPocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                    + 텀블러주머니
-                  </label>
-                  {extras.hasTumblerPocket && (
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'4px', paddingLeft:'26px'}}>
-                      <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="tumblerPocketW" value={extras.tumblerPocketW} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="tumblerPocketH" value={extras.tumblerPocketH} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="tumblerPocketQty" value={extras.tumblerPocketQty} onChange={handleExtrasChange} className="form-control"/></div>
-                    </div>
-                  )}
-                  {extras.hasTumblerPocket && (
-                    <div style={{paddingLeft:'26px', marginBottom:'12px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
-                      → 텀블러주머니 소요: {result.tumblerPocketYard} yard/개
-                    </div>
-                  )}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasTumblerPocket" checked={extras.hasTumblerPocket} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 텀블러주머니
+                    </label>
+                    {extras.hasTumblerPocket && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="tumblerPocketW" value={extras.tumblerPocketW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="tumblerPocketH" value={extras.tumblerPocketH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="tumblerPocketQty" value={extras.tumblerPocketQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="tumblerPocketTopSeam" value={extras.tumblerPocketTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="tumblerPocketBottomSeam" value={extras.tumblerPocketBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="tumblerPocketSideSeam" value={extras.tumblerPocketSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.tumblerPocketFabric.isCustom} onChange={(e) => handleExtraFabricChange('tumblerPocket', 'isCustom', e.target.checked)} />
+                          텀블러용 원단 별도 설정
+                        </label>
+                        {extras.tumblerPocketFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.tumblerPocketFabric.supplier} onChange={(e) => handleExtraFabricChange('tumblerPocket', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.tumblerPocketFabric.name} onChange={(e) => handleExtraFabricChange('tumblerPocket', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.tumblerPocketFabric.width} onChange={(e) => handleExtraFabricChange('tumblerPocket', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.tumblerPocketFabric.price} onChange={(e) => handleExtraFabricChange('tumblerPocket', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 텀블러주머니 소요: {result.tumblerPocketYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 안감 */}
+                  <div style={{marginBottom:'12px', borderBottom:'1px solid #f1f5f9', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasLining" checked={extras.hasLining} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 안감 (Lining)
+                    </label>
+                    {extras.hasLining && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="liningW" value={extras.liningW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="liningH" value={extras.liningH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="liningQty" value={extras.liningQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="liningTopSeam" value={extras.liningTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="liningBottomSeam" value={extras.liningBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="liningSideSeam" value={extras.liningSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.liningFabric.isCustom} onChange={(e) => handleExtraFabricChange('lining', 'isCustom', e.target.checked)} />
+                          안감 원단 별도 설정
+                        </label>
+                        {extras.liningFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.liningFabric.supplier} onChange={(e) => handleExtraFabricChange('lining', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.liningFabric.name} onChange={(e) => handleExtraFabricChange('lining', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.liningFabric.width} onChange={(e) => handleExtraFabricChange('lining', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.liningFabric.price} onChange={(e) => handleExtraFabricChange('lining', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 안감 원단 소요: {result.liningYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* 기타 원단 */}
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
-                    <input type="checkbox" name="hasOther" checked={extras.hasOther} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                    + 기타 원단 부속
-                  </label>
-                  {extras.hasOther && (
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'4px', paddingLeft:'26px'}}>
-                      <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="otherW" value={extras.otherW} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="otherH" value={extras.otherH} onChange={handleExtrasChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="otherQty" value={extras.otherQty} onChange={handleExtrasChange} className="form-control"/></div>
-                    </div>
-                  )}
-                  {extras.hasOther && (
-                    <div style={{paddingLeft:'26px', marginBottom:'4px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
-                      → 기타 원단 소요: {result.otherYard} yard/개
-                    </div>
-                  )}
-                </div>
+                  <div style={{marginBottom:'12px', pb:'8px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', marginBottom:'8px', fontSize:'14px', fontWeight:'600', color:'#334155'}}>
+                      <input type="checkbox" name="hasOther" checked={extras.hasOther} onChange={handleExtrasChange} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                      + 기타 원단 부속
+                    </label>
+                    {extras.hasOther && (
+                      <div style={{paddingLeft:'26px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>가로(cm)</label><input type="number" name="otherW" value={extras.otherW} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>세로(cm)</label><input type="number" name="otherH" value={extras.otherH} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개)</label><input type="number" name="otherQty" value={extras.otherQty} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>상단 시접(cm)</label><input type="number" name="otherTopSeam" value={extras.otherTopSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>하단 시접(cm)</label><input type="number" name="otherBottomSeam" value={extras.otherBottomSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>좌우 시접(cm)</label><input type="number" name="otherSideSeam" value={extras.otherSideSeam} onChange={handleExtrasChange} className="form-control"/></div>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'12px', cursor:'pointer', color:'#64748b', mb:'8px'}}>
+                          <input type="checkbox" checked={extras.otherFabric.isCustom} onChange={(e) => handleExtraFabricChange('other', 'isCustom', e.target.checked)} />
+                          기타 부속용 원단 별도 설정
+                        </label>
+                        {extras.otherFabric.isCustom && (
+                          <div style={{marginTop:'6px', padding:'8px', background:'#f8fafc', borderRadius:'4px', border:'1px solid #e2e8f0'}}>
+                            <select value={extras.otherFabric.supplier} onChange={(e) => handleExtraFabricChange('other', 'supplier', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}}>
+                              {fabricSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <input type="text" value={extras.otherFabric.name} onChange={(e) => handleExtraFabricChange('other', 'name', e.target.value)} className="form-control" style={{fontSize:'11px', marginBottom:'4px'}} placeholder="원단명"/>
+                            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px'}}>
+                              <input type="number" value={extras.otherFabric.width} onChange={(e) => handleExtraFabricChange('other', 'width', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="폭(in)"/>
+                              <input type="number" value={extras.otherFabric.price} onChange={(e) => handleExtraFabricChange('other', 'price', e.target.value)} className="form-control" style={{fontSize:'11px'}} placeholder="단가(원)"/>
+                            </div>
+                          </div>
+                        )}
+                        <div style={{marginTop:'6px', fontSize:'12px', color:'#10b981', fontWeight:'600'}}>
+                          → 기타 원단 소요: {result.otherYard} yard/개
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                 <div style={{marginTop:'16px', background:'#1e293b', color:'white', padding:'16px', borderRadius:'8px'}}>
-                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
-                    <span style={{fontSize:'13px', color:'#94a3b8'}}>필요 발주 요척 (Gross)</span><span style={{fontWeight:'700'}}>{result.grossYard} Yard</span>
+                  <div style={{fontSize:'14px', color:'#94a3b8', marginBottom:'12px', borderBottom:'1px solid #334155', pb:'8px', fontWeight:700}}>📋 업체별 통합 원단 발주 리스트</div>
+                  <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                    {result.orderGroups && Object.entries(result.orderGroups).map(([supplier, items]) => (
+                      <div key={supplier} style={{padding:'10px', background:'rgba(255,255,255,0.05)', borderRadius:'6px', border:'1px solid rgba(255,255,255,0.1)'}}>
+                        <div style={{fontSize:'13px', fontWeight:800, color:'#fbbf24', marginBottom:'6px'}}>발주처: {supplier}</div>
+                        <table style={{width:'100%', fontSize:'11px', borderCollapse:'collapse'}}>
+                          <thead>
+                            <tr style={{borderBottom:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8'}}>
+                              <th style={{textAlign:'left', pb:'4px'}}>품명(원단명)</th>
+                              <th style={{textAlign:'center', pb:'4px'}}>규격</th>
+                              <th style={{textAlign:'right', pb:'4px'}}>발주량(Gross)</th>
+                              <th style={{textAlign:'right', pb:'4px'}}>금액</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {items.map((item, idx) => (
+                              <tr key={idx} style={{borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
+                                <td style={{py:'4px'}}>{idx + 1}. {item.name || '미지정'}</td>
+                                <td style={{textAlign:'center'}}>{item.width}"</td>
+                                <td style={{textAlign:'right', fontWeight:700, color:'#34d399'}}>{item.grossYard} Y</td>
+                                <td style={{textAlign:'right'}}>₩ {item.cost.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <div style={{textAlign:'right', marginTop:'8px', fontSize:'12px', fontWeight:800, borderTop:'1px solid rgba(255,255,255,0.2)', pt:'4px'}}>
+                          업체 합계: <span style={{color:'#fbbf24'}}>₩ {items.reduce((acc, curr) => acc + curr.cost, 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{display:'flex', justifyContent:'space-between', borderTop:'1px solid #334155', paddingTop:'8px', marginTop:'4px'}}>
-                    <span style={{fontSize:'13px'}}>원단 구매 예상총액</span><span style={{fontWeight:'700', color:'#34d399'}}>₩ {result.fabricTotalCost.toLocaleString()}</span>
+                  <div style={{display:'flex', justifyContent:'space-between', borderTop:'1px solid #334155', paddingTop:'12px', marginTop:'12px'}}>
+                    <span style={{fontSize:'13px', color:'#94a3b8'}}>전체 원단 구매 총액</span><span style={{fontWeight:'800', color:'#34d399', fontSize:'16px'}}>₩ {result.fabricTotalCost.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -869,56 +1520,189 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                 </div>
                 <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>부자재 (1개당 단가)</h4>
                 <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'12px', marginBottom: '16px'}}>
-                  <div className="form-group" style={{margin:0}}>
-                    <label style={{fontWeight:'700', color:'#1e293b', fontSize:'14px', display:'flex', justifyContent:'space-between'}}>
-                      <span>🧵 웨빙 자동 계산</span>
-                      <button onClick={() => handleAddSupplier('webbing')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
-                    </label>
-                    <select name="webbingSupplier" value={costs.webbingSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#3b82f6'}}>
-                      {webbingSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
-                      <div className="form-group" style={{margin:0}}><label>완성길이(cm)</label><input type="number" name="webbingFinishLen" value={costs.webbingFinishLen} onChange={handleCostChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>시접(cm)</label><input type="number" name="webbingSeam" value={costs.webbingSeam} onChange={handleCostChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>수량(개/가방)</label><input type="number" name="webbingQtyPerBag" value={costs.webbingQtyPerBag} onChange={handleCostChange} className="form-control"/></div>
-                    </div>
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
-                      <div className="form-group" style={{margin:0}}><label>웨빙가격(원/롤)</label><input type="number" name="webbingPrice" value={costs.webbingPrice} onChange={handleCostChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>1롤 길이(m)</label><input type="number" name="webbingRollLen" value={costs.webbingRollLen} onChange={handleCostChange} className="form-control"/></div>
-                      <div className="form-group" style={{margin:0}}><label>로스(%)</label><input type="number" name="webbingLoss" value={costs.webbingLoss} onChange={handleCostChange} className="form-control"/></div>
-                    </div>
-                    {(() => {
-                      const cutLen = costs.webbingFinishLen + (costs.webbingSeam * 2);
-                      const netTotalCm = cutLen * costs.webbingQtyPerBag * specs.qty;
-                      const rollLenCm = costs.webbingRollLen * 100;
-                      const rollsNeeded = rollLenCm > 0 ? Math.ceil((netTotalCm * (1 + costs.webbingLoss / 100)) / rollLenCm) : 0;
-                      const totalCost = rollsNeeded * costs.webbingPrice;
-                      return (
-                        <div style={{marginTop:'10px', background:'#1e293b', color:'white', padding:'12px', borderRadius:'8px', fontSize:'12px'}}>
-                          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
-                            <span style={{color:'#94a3b8'}}>1개당 재단길이</span><span>{cutLen} cm</span>
-                          </div>
-                          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
-                            <span style={{color:'#94a3b8'}}>웨빙 주문길이(Net)</span><span>{netTotalCm.toLocaleString()} cm</span>
-                          </div>
-                          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
-                            <span style={{color:'#94a3b8'}}>최종 주문(롤)</span><span style={{fontWeight:'700', color:'#fbbf24'}}>{rollsNeeded} 롤</span>
-                          </div>
-                          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
-                            <span style={{color:'#94a3b8'}}>웨빙 예상비용</span><span>₩ {totalCost.toLocaleString()}</span>
-                          </div>
-                          <div style={{display:'flex', justifyContent:'space-between', borderTop:'1px solid #475569', paddingTop:'6px', marginTop:'4px'}}>
-                            <span style={{fontWeight:'700', color:'#fbbf24'}}>★ 1개당 웨빙 비용</span><span style={{fontWeight:'800', color:'#34d399', fontSize:'14px'}}>₩ {costs.webbingUnit.toLocaleString()}</span>
-                          </div>
+                  
+                  {/* 품목에 따른 순서 변경 로직 */}
+                  {bagSpecs.productType === '에코백' ? (
+                    <>
+                      {/* 1. 웨빙 (에코백 우선) */}
+                      <div className="form-group" style={{margin:0}}>
+                        <label style={{fontWeight:'700', color:'#1e293b', fontSize:'14px', display:'flex', justifyContent:'space-between'}}>
+                          <span>🧵 웨빙 자동 계산</span>
+                          <button onClick={() => handleAddSupplier('webbing')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                        </label>
+                        <select name="webbingSupplier" value={costs.webbingSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#3b82f6'}}>
+                          {webbingSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>완성길이(cm)</label><input type="number" name="webbingFinishLen" value={costs.webbingFinishLen} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>시접(cm)</label><input type="number" name="webbingSeam" value={costs.webbingSeam} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개/가방)</label><input type="number" name="webbingQtyPerBag" value={costs.webbingQtyPerBag} onChange={handleCostChange} className="form-control"/></div>
                         </div>
-                      );
-                    })()}
-                    <div style={{marginTop:'8px'}}>
-                      <label style={{fontSize:'11px', color:'#64748b'}}>웨빙내용</label>
-                      <textarea name="webbingContent" value={costs.webbingContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="종류, 색상 등"></textarea>
-                    </div>
-                  </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>웨빙가격(원/롤)</label><input type="number" name="webbingPrice" value={costs.webbingPrice} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>1롤 길이(m)</label><input type="number" name="webbingRollLen" value={costs.webbingRollLen} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>로스(%)</label><input type="number" name="webbingLoss" value={costs.webbingLoss} onChange={handleCostChange} className="form-control"/></div>
+                        </div>
+                        {(() => {
+                          const cutLen = costs.webbingFinishLen + (costs.webbingSeam * 2);
+                          const netTotalCm = cutLen * costs.webbingQtyPerBag * specs.qty;
+                          const rollLenCm = costs.webbingRollLen * 100;
+                          const rollsNeeded = rollLenCm > 0 ? Math.ceil((netTotalCm * (1 + costs.webbingLoss / 100)) / rollLenCm) : 0;
+                          const totalCost = rollsNeeded * costs.webbingPrice;
+                          return (
+                            <div style={{marginTop:'10px', background:'#1e293b', color:'white', padding:'12px', borderRadius:'8px', fontSize:'12px'}}>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>1개당 재단길이</span><span>{cutLen} cm</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>웨빙 주문길이(Net)</span><span>{netTotalCm.toLocaleString()} cm</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>최종 주문(롤)</span><span style={{fontWeight:'700', color:'#fbbf24'}}>{rollsNeeded} 롤</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>웨빙 예상비용</span><span>₩ {totalCost.toLocaleString()}</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', borderTop:'1px solid #475569', paddingTop:'6px', marginTop:'4px'}}>
+                                <span style={{fontWeight:'700', color:'#fbbf24'}}>★ 1개당 웨빙 비용</span><span style={{fontWeight:'800', color:'#34d399', fontSize:'14px'}}>₩ {costs.webbingUnit.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <div style={{marginTop:'8px'}}>
+                          <label style={{fontSize:'11px', color:'#64748b'}}>웨빙내용</label>
+                          <textarea name="webbingContent" value={costs.webbingContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="종류, 색상 등"></textarea>
+                        </div>
+                      </div>
 
+                      {/* 2. 금속/기타 부속 (에코백 차순위) */}
+                      <div className="form-group" style={{margin:0}}>
+                        <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
+                          <input type="checkbox" checked={costs.hasMetal} onChange={(e) => setCosts(prev => ({...prev, hasMetal: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                          <span>금속/기타 부속</span>
+                          <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                        </label>
+                        {costs.hasMetal && (
+                          <select name="metalSupplier" value={costs.metalSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
+                            {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
+                        {costs.hasMetal && (<>
+                          <input type="number" name="metalUnit" value={costs.metalUnit} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
+                          <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 내용</label>
+                          <textarea name="metalContent" value={costs.metalContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="단추, 고리, 지퍼 등"></textarea>
+                        </>)}
+                      </div>
+                      <div className="form-group" style={{margin:0}}>
+                        <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
+                          <input type="checkbox" checked={costs.hasMetal2} onChange={(e) => setCosts(prev => ({...prev, hasMetal2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                          <span>금속/기타 부속 2</span>
+                          <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                        </label>
+                        {costs.hasMetal2 && (
+                          <select name="metalSupplier2" value={costs.metalSupplier2} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
+                            {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
+                        {costs.hasMetal2 && (<>
+                          <input type="number" name="metalUnit2" value={costs.metalUnit2} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
+                          <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 2 내용</label>
+                          <textarea name="metalContent2" value={costs.metalContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="단추, 고리, 지퍼 등"></textarea>
+                        </>)}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* 1. 금속/기타 부속 (파우치 우선) */}
+                      <div className="form-group" style={{margin:0}}>
+                        <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
+                          <input type="checkbox" checked={costs.hasMetal} onChange={(e) => setCosts(prev => ({...prev, hasMetal: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                          <span>금속/기타 부속</span>
+                          <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                        </label>
+                        {costs.hasMetal && (
+                          <select name="metalSupplier" value={costs.metalSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
+                            {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
+                        {costs.hasMetal && (<>
+                          <input type="number" name="metalUnit" value={costs.metalUnit} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
+                          <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 내용</label>
+                          <textarea name="metalContent" value={costs.metalContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="단추, 고리, 지퍼 등"></textarea>
+                        </>)}
+                      </div>
+                      <div className="form-group" style={{margin:0}}>
+                        <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
+                          <input type="checkbox" checked={costs.hasMetal2} onChange={(e) => setCosts(prev => ({...prev, hasMetal2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
+                          <span>금속/기타 부속 2</span>
+                          <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                        </label>
+                        {costs.hasMetal2 && (
+                          <select name="metalSupplier2" value={costs.metalSupplier2} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
+                            {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
+                        {costs.hasMetal2 && (<>
+                          <input type="number" name="metalUnit2" value={costs.metalUnit2} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
+                          <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 2 내용</label>
+                          <textarea name="metalContent2" value={costs.metalContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="단추, 고리, 지퍼 등"></textarea>
+                        </>)}
+                      </div>
+
+                      {/* 2. 웨빙 (파우치 차순위) */}
+                      <div className="form-group" style={{margin:0}}>
+                        <label style={{fontWeight:'700', color:'#1e293b', fontSize:'14px', display:'flex', justifyContent:'space-between'}}>
+                          <span>🧵 웨빙 자동 계산</span>
+                          <button onClick={() => handleAddSupplier('webbing')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                        </label>
+                        <select name="webbingSupplier" value={costs.webbingSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#3b82f6'}}>
+                          {webbingSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>완성길이(cm)</label><input type="number" name="webbingFinishLen" value={costs.webbingFinishLen} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>시접(cm)</label><input type="number" name="webbingSeam" value={costs.webbingSeam} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>수량(개/가방)</label><input type="number" name="webbingQtyPerBag" value={costs.webbingQtyPerBag} onChange={handleCostChange} className="form-control"/></div>
+                        </div>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'8px'}}>
+                          <div className="form-group" style={{margin:0}}><label>웨빙가격(원/롤)</label><input type="number" name="webbingPrice" value={costs.webbingPrice} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>1롤 길이(m)</label><input type="number" name="webbingRollLen" value={costs.webbingRollLen} onChange={handleCostChange} className="form-control"/></div>
+                          <div className="form-group" style={{margin:0}}><label>로스(%)</label><input type="number" name="webbingLoss" value={costs.webbingLoss} onChange={handleCostChange} className="form-control"/></div>
+                        </div>
+                        {(() => {
+                          const cutLen = costs.webbingFinishLen + (costs.webbingSeam * 2);
+                          const netTotalCm = cutLen * costs.webbingQtyPerBag * specs.qty;
+                          const rollLenCm = costs.webbingRollLen * 100;
+                          const rollsNeeded = rollLenCm > 0 ? Math.ceil((netTotalCm * (1 + costs.webbingLoss / 100)) / rollLenCm) : 0;
+                          const totalCost = rollsNeeded * costs.webbingPrice;
+                          return (
+                            <div style={{marginTop:'10px', background:'#1e293b', color:'white', padding:'12px', borderRadius:'8px', fontSize:'12px'}}>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>1개당 재단길이</span><span>{cutLen} cm</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>웨빙 주문길이(Net)</span><span>{netTotalCm.toLocaleString()} cm</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#fbbf24'}}>최종 주문(롤)</span><span style={{fontWeight:'700', color:'#fbbf24'}}>{rollsNeeded} 롤</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                                <span style={{color:'#94a3b8'}}>웨빙 예상비용</span><span>₩ {totalCost.toLocaleString()}</span>
+                              </div>
+                              <div style={{display:'flex', justifyContent:'space-between', borderTop:'1px solid #475569', paddingTop:'6px', marginTop:'4px'}}>
+                                <span style={{fontWeight:'700', color:'#fbbf24'}}>★ 1개당 웨빙 비용</span><span style={{fontWeight:'800', color:'#34d399', fontSize:'14px'}}>₩ {costs.webbingUnit.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <div style={{marginTop:'8px'}}>
+                          <label style={{fontSize:'11px', color:'#64748b'}}>웨빙내용</label>
+                          <textarea name="webbingContent" value={costs.webbingContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="종류, 색상 등"></textarea>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 바이어스 섹션 (공통 하단) */}
                   {/* 겉헤리(바이어스) 토글 */}
                   <div className="form-group" style={{margin:0, marginTop:'12px'}}>
                     <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'700', color:'#1e293b', fontSize:'14px'}}>
@@ -1014,71 +1798,38 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                       </div>
                     )}
                   </div>
-                  <div className="form-group" style={{margin:0}}>
-                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
-                      <input type="checkbox" checked={costs.hasMetal} onChange={(e) => setCosts(prev => ({...prev, hasMetal: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                      <span>금속/기타 부속</span>
-                      <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
-                    </label>
-                    {costs.hasMetal && (
-                      <select name="metalSupplier" value={costs.metalSupplier} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
-                        {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    )}
-                    {costs.hasMetal && (<>
-                      <input type="number" name="metalUnit" value={costs.metalUnit} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
-                      <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 내용</label>
-                      <textarea name="metalContent" value={costs.metalContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="단추, 고리, 지퍼 등"></textarea>
-                    </>)}
-                  </div>
-                  <div className="form-group" style={{margin:0}}>
-                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
-                      <input type="checkbox" checked={costs.hasMetal2} onChange={(e) => setCosts(prev => ({...prev, hasMetal2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                      <span>금속/기타 부속 2</span>
-                      <button onClick={() => handleAddSupplier('metal')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
-                    </label>
-                    {costs.hasMetal2 && (
-                      <select name="metalSupplier2" value={costs.metalSupplier2} onChange={handleCostChange} className="form-control" style={{marginTop:'8px', borderColor:'#94a3b8'}}>
-                        {metalSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    )}
-                    {costs.hasMetal2 && (<>
-                      <input type="number" name="metalUnit2" value={costs.metalUnit2} onChange={handleCostChange} className="form-control" placeholder="단가 (원)" style={{marginTop:'8px', marginBottom:'8px'}}/>
-                      <label style={{fontSize:'11px', color:'#64748b'}}>금속기타 2 내용</label>
-                      <textarea name="metalContent2" value={costs.metalContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="단추, 고리, 지퍼 등"></textarea>
-                    </>)}
-                  </div>
                 </div>
-                <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>인쇄 (1개당 단가)</h4>
-                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'12px', marginBottom:'16px'}}>
+                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'12px', marginBottom:'16px', borderTop:'2px dashed #e2e8f0', paddingTop:'16px', marginTop:'8px'}}>
                   <div className="form-group" style={{margin:0}}>
-                    <label style={{display:'flex', justifyContent:'space-between'}}>
-                      인쇄 단가 (개당)
-                      <button onClick={() => handleAddSupplier('print')} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>+ 업체등록</button>
+                    <label style={{fontWeight:'800', color:'#047857', fontSize:'15px', display:'flex', justifyContent:'space-between', marginBottom:'10px'}}>
+                      <span>🖨️ 인쇄 1 (1개당 단가)</span>
+                      <button onClick={() => handleAddSupplier('print')} style={{fontSize:'10px', padding:'2px 6px', background:'white', border:'1px solid #a7f3d0', borderRadius:'4px', cursor:'pointer', fontWeight:'normal', color:'#047857'}}>+ 업체등록</button>
                     </label>
-                    <select name="printSupplier" value={costs.printSupplier} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', borderColor:'#10b981'}}>
+                    <select name="printSupplier" value={costs.printSupplier} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', borderColor:'#10b981', backgroundColor:'#f0fdf4'}}>
                       {printSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <input type="number" name="printUnit" value={costs.printUnit} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}}/>
-                    <div style={{fontSize:'12px', color:'#10b981', fontWeight:'600', marginBottom:'8px'}}>
-                      → 인쇄 총비용: ₩ {(costs.printUnit * specs.qty).toLocaleString()} ({specs.qty}개)
+                    <input type="number" name="printUnit" value={costs.printUnit} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}} placeholder="인쇄 단가 입력"/>
+                    <div style={{fontSize:'13px', color:'white', fontWeight:'700', marginBottom:'12px', padding:'8px 12px', background:'#059669', borderRadius:'6px', display:'flex', justifyContent:'space-between'}}>
+                      <span>인쇄 총비용 ({specs.qty}개)</span>
+                      <span>₩ {(costs.printUnit * specs.qty).toLocaleString()}</span>
                     </div>
                     <label style={{fontSize:'11px', color:'#64748b'}}>인쇄내용</label>
                     <textarea name="printContent" value={costs.printContent} onChange={handleCostChange} className="form-control" rows="2" placeholder="인쇄 방식, 도수 등"></textarea>
                   </div>
-                  <div className="form-group" style={{margin:0}}>
-                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'600', color:'#1e293b'}}>
-                      <input type="checkbox" checked={costs.hasPrint2} onChange={(e) => setCosts(prev => ({...prev, hasPrint2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'var(--primary-color)'}} />
-                      <span>인쇄 2 단가 (개당)</span>
-                      <button onClick={(e) => { e.preventDefault(); handleAddSupplier('print'); }} style={{fontSize:'10px', padding:'2px 4px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer', marginLeft:'auto'}}>+ 업체등록</button>
+                  <div className="form-group" style={{margin:0, borderTop:'1px dashed #cbd5e1', paddingTop:'12px'}}>
+                    <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontWeight:'800', color:'#047857', fontSize:'14px'}}>
+                      <input type="checkbox" checked={costs.hasPrint2} onChange={(e) => setCosts(prev => ({...prev, hasPrint2: e.target.checked}))} style={{width:'18px', height:'18px', accentColor:'#059669'}} />
+                      <span>🖨️ 인쇄 2 (1개당 단가)</span>
+                      <button onClick={(e) => { e.preventDefault(); handleAddSupplier('print'); }} style={{fontSize:'10px', padding:'2px 6px', background:'white', border:'1px solid #a7f3d0', borderRadius:'4px', cursor:'pointer', marginLeft:'auto', fontWeight:'normal', color:'#047857'}}>+ 업체등록</button>
                     </label>
                     {costs.hasPrint2 && (<>
-                      <select name="printSupplier2" value={costs.printSupplier2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', marginTop:'8px', borderColor:'#10b981'}}>
+                      <select name="printSupplier2" value={costs.printSupplier2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px', marginTop:'10px', borderColor:'#10b981', backgroundColor:'#f0fdf4'}}>
                         {printSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <input type="number" name="printUnit2" value={costs.printUnit2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}}/>
-                      <div style={{fontSize:'12px', color:'#10b981', fontWeight:'600', marginBottom:'8px'}}>
-                        → 인쇄 2 총비용: ₩ {(costs.printUnit2 * specs.qty).toLocaleString()} ({specs.qty}개)
+                      <input type="number" name="printUnit2" value={costs.printUnit2} onChange={handleCostChange} className="form-control" style={{marginBottom:'8px'}} placeholder="추가 인쇄 단가 입력"/>
+                      <div style={{fontSize:'13px', color:'white', fontWeight:'700', marginBottom:'12px', padding:'8px 12px', background:'#059669', borderRadius:'6px', display:'flex', justifyContent:'space-between'}}>
+                        <span>인쇄 2 총비용 ({specs.qty}개)</span>
+                        <span>₩ {(costs.printUnit2 * specs.qty).toLocaleString()}</span>
                       </div>
                       <label style={{fontSize:'11px', color:'#64748b'}}>인쇄 2 내용</label>
                       <textarea name="printContent2" value={costs.printContent2} onChange={handleCostChange} className="form-control" rows="2" placeholder="인쇄 2 방식, 도수 등"></textarea>
@@ -1261,16 +2012,32 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                       )}
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label>시안 이미지 링크 (인쇄/로고)</label>
-                    <div style={{display:'flex', gap:'8px'}}>
-                      <input type="url" name="proofImage" value={extraInfo.proofImage} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} placeholder="https://... 이미지 URL" />
-                      {extraInfo.proofImage && (
-                        <button 
-                          onClick={() => window.open(extraInfo.proofImage, '_blank')}
-                          style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:'6px', cursor:'pointer', fontSize:'12px', whiteSpace:'nowrap'}}>
-                          🖼️ 열기
-                        </button>
+                  <div className="form-group" style={{borderTop:'1px solid #e2e8f0', paddingTop:'16px'}}>
+                    <label style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                      <span style={{fontWeight:'700', color:'#1e293b'}}>🖼️ 시안 이미지 확인 (드라이브 연동)</span>
+                      <button onClick={fetchProofFiles} disabled={isFetchingProofs} style={{fontSize:'11px', padding:'4px 8px', background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:'4px', cursor: isFetchingProofs ? 'not-allowed' : 'pointer', fontWeight:600}}>
+                        {isFetchingProofs ? '⏳ 불러오는 중...' : '🔄 리스트 불러오기/새로고침'}
+                      </button>
+                    </label>
+                    <div style={{marginTop:'8px', background:'white', border:'1px solid #e2e8f0', borderRadius:'6px', padding:'8px'}}>
+                      {proofFiles.length === 0 ? (
+                        <div style={{fontSize:'12px', color:'#94a3b8', textAlign:'center', padding:'12px 0'}}>
+                          드라이브 폴더에 업로드된 시안 파일이 없습니다.<br/>
+                          '리스트 불러오기' 버튼을 눌러 목록을 업데이트하세요.
+                        </div>
+                      ) : (
+                        <ul style={{listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:'6px'}}>
+                          {proofFiles.map(file => (
+                            <li key={file.id} style={{fontSize:'12px', display:'flex', alignItems:'center', gap:'8px', padding:'6px', background:'#f8fafc', borderRadius:'4px'}}>
+                              <span 
+                                style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'#3b82f6', cursor:'pointer', textDecoration:'underline'}} 
+                                onClick={() => setSelectedProof(file)}>
+                                📄 {file.name}
+                              </span>
+                              <button onClick={() => window.open(file.webViewLink, '_blank')} style={{fontSize:'10px', padding:'2px 6px', background:'white', border:'1px solid #cbd5e1', borderRadius:'4px', cursor:'pointer'}}>드라이브 열기</button>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                   </div>
@@ -1306,14 +2073,35 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
         </div>
 
         {/* BOTTOM GLOBAL ACTION BUTTON */}
-        <div className="modal-footer" style={{padding:'20px 24px', borderTop:'1px solid #e2e8f0', background:'#f8fafc', display:'flex', justifyContent:'flex-end'}}>
-             <button 
+        <div className="modal-footer" style={{padding:'20px 24px', borderTop:'1px solid #e2e8f0', background:'#f8fafc', display:'flex', justifyContent:'space-between'}}>
+            <button 
+              onClick={handleGenerateEstimate}
+              style={{padding:'14px 28px', background:'white', color:'#3b82f6', border:'1px solid #3b82f6', borderRadius:'8px', fontWeight:700, fontSize:'15px', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px'}}>
+              📄 견적서 발행 (PDF)
+            </button>
+            <button 
               onClick={handleFinalSave}
               style={{padding:'14px 28px', background:'var(--primary-color)', color:'white', border:'none', borderRadius:'8px', fontWeight:700, fontSize:'15px', cursor:'pointer', boxShadow:'0 4px 6px rgba(16, 185, 129, 0.2)'}}>
               모든 사양 및 정보 저장하기 (상태 전환)
             </button>
         </div>
       </div>
+
+      {/* 시안 이미지 뷰어 모달 */}
+      {selectedProof && (
+        <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.85)', zIndex:2000, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}>
+          <div style={{position:'absolute', top:'20px', right:'20px'}}>
+            <button onClick={() => setSelectedProof(null)} style={{background:'transparent', border:'none', color:'white', fontSize:'36px', cursor:'pointer', textShadow:'0 2px 4px rgba(0,0,0,0.5)'}}>×</button>
+          </div>
+          <div style={{color:'white', marginBottom:'16px', fontSize:'18px', fontWeight:600, padding:'8px 16px', background:'rgba(0,0,0,0.5)', borderRadius:'8px'}}>{selectedProof.name}</div>
+          <img 
+            src={`http://${window.location.hostname}:3001/api/drive/image/${selectedProof.id}`} 
+            alt={selectedProof.name}
+            style={{maxWidth:'90%', maxHeight:'80vh', objectFit:'contain', borderRadius:'8px', boxShadow:'0 10px 25px rgba(0,0,0,0.5)', backgroundColor:'white'}}
+            onError={(e) => { e.target.onerror = null; alert('이미지를 불러올 수 없습니다. 권한 문제이거나 이미지 형식이 아닐 수 있습니다.'); setSelectedProof(null); }}
+          />
+        </div>
+      )}
     </div>
   );
 }

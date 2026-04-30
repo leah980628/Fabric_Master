@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ConsultationModal from './ConsultationModal';
 import CalculatorModal from './CalculatorModal';
+import FactoryManagementModal from './FactoryManagementModal';
 import './index.css';
 
 const PIPELINE_STAGES = [
@@ -143,6 +144,7 @@ function KanbanColumn({ title, items, onDrop, onDragOver, onDragStart, onCardCli
 function App() {
   const [items, setItems] = useState(DUMMY_DATA);
   const [isConsultOpen, setIsConsultOpen] = useState(false);
+  const [isFactoryManageOpen, setIsFactoryManageOpen] = useState(false);
   const [calculatorItem, setCalculatorItem] = useState(null);
 
   const handleDragStart = (e, id) => {
@@ -321,10 +323,9 @@ function App() {
         </div>
         <div className="button-group" style={{display: 'flex', gap: '12px'}}>
           <button 
-            onClick={() => setIsTrashOpen(true)}
-            style={{padding: '10px 20px', background: '#94a3b8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)', position: 'relative'}}>
-            🗑️ 쓰레기통 
-            {trash.length > 0 && <span style={{position:'absolute', top:'-8px', right:'-8px', background:'#ef4444', color:'white', borderRadius:'50%', width:'20px', height:'20px', fontSize:'12px', display:'flex', alignItems:'center', justifyContent:'center'}}>{trash.length}</span>}
+            onClick={() => setIsFactoryManageOpen(true)}
+            style={{padding: '10px 20px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
+            ⚙️ 공장 관리
           </button>
           <button 
             onClick={() => setIsConsultOpen(true)}
@@ -333,6 +334,12 @@ function App() {
           </button>
           <button style={{padding: '10px 20px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
             📦 공장 발주 전송
+          </button>
+          <button 
+            onClick={() => setIsTrashOpen(true)}
+            style={{padding: '10px 20px', background: '#94a3b8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)', position: 'relative'}}>
+            🗑️ 쓰레기통 
+            {trash.length > 0 && <span style={{position:'absolute', top:'-8px', right:'-8px', background:'#ef4444', color:'white', borderRadius:'50%', width:'20px', height:'20px', fontSize:'12px', display:'flex', alignItems:'center', justifyContent:'center'}}>{trash.length}</span>}
           </button>
         </div>
       </div>
@@ -381,6 +388,12 @@ function App() {
         <ConsultationModal 
           onClose={() => setIsConsultOpen(false)} 
           onSave={handleCreateConsult} 
+        />
+      )}
+
+      {isFactoryManageOpen && (
+        <FactoryManagementModal 
+          onClose={() => setIsFactoryManageOpen(false)} 
         />
       )}
 
