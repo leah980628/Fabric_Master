@@ -39,20 +39,33 @@ function KanbanCard({ item, onDragStart, onCardClick, onCopy, onDelete }) {
       title="클릭하여 사양 및 요척 계산"
     >
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'4px'}}>
-        <div className="card-title" style={{margin:0, flex:1}}>{item.company}</div>
-        <span style={{
-          fontSize:'10px', 
-          fontWeight:'700', 
-          padding:'2px 6px', 
-          borderRadius:'10px',
-          marginLeft:'6px',
-          whiteSpace:'nowrap',
-          background: isNew ? 'rgba(52, 211, 153, 0.1)' : 'rgba(129, 140, 248, 0.1)',
-          color: isNew ? 'var(--secondary-color)' : 'var(--primary-color)',
-          border: `1px solid ${isNew ? 'rgba(52, 211, 153, 0.5)' : 'rgba(129, 140, 248, 0.5)'}`
-        }}>
-          {isNew ? '✨ 신규' : '🔄 재상담'}
-        </span>
+        <div className="card-title" style={{margin:0, flex:1, fontSize:'14px', fontWeight:700}}>{item.company}</div>
+        <div style={{display:'flex', flexDirection:'column', gap:'4px', alignItems:'flex-end'}}>
+          <span style={{
+            fontSize:'9px', 
+            fontWeight:'800', 
+            padding:'1px 5px', 
+            borderRadius:'4px',
+            whiteSpace:'nowrap',
+            background: item.isLegacy ? '#f3e8ff' : '#dbeafe',
+            color: item.isLegacy ? '#7e22ce' : '#1d4ed8',
+            border: `1px solid ${item.isLegacy ? '#c084fc' : '#60a5fa'}`
+          }}>
+            {item.isLegacy ? '💾 기존' : '🌐 웹앱'}
+          </span>
+          <span style={{
+            fontSize:'9px', 
+            fontWeight:'700', 
+            padding:'1px 5px', 
+            borderRadius:'4px',
+            whiteSpace:'nowrap',
+            background: isNew ? '#ecfdf5' : '#fff7ed',
+            color: isNew ? '#059669' : '#d97706',
+            border: `1px solid ${isNew ? '#34d399' : '#fbbf24'}`
+          }}>
+            {isNew ? '✨ 신규' : '🔄 재상담'}
+          </span>
+        </div>
       </div>
       <div className="card-subtitle">{item.id} | {item.pic}</div>
       <div className="card-meta" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>

@@ -216,14 +216,43 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   };
 
   // 4. 마진뷰
-  const [margin, setMargin] = useState(() => initFromItem({ percent: 30, customDeliveryUnit: 0 }, item));
-
-  const [result, setResult] = useState({
-    netYard: 0, grossYard: 0, fabricTotalCost: 0, fabricUnitCost: 0, 
-    totalCostUnit: 0, totalCostAll: 0, marginAmountUnit: 0, 
-    finalDeliveryUnit: 0, finalDeliveryAll: 0, finalDeliveryAllVAT: 0,
-    bodyNetYard: 0
+  const [margin, setMargin] = useState(() => {
+    // 기존 데이터인 경우 납품가를 customDeliveryUnit에 설정
+    if (item?.isLegacy && item?.legacyResult) {
+      return {
+        percent: item.legacyResult.percent || 30,
+        customDeliveryUnit: item.legacyResult.finalDeliveryUnit || 0
+      };
+    }
+    return initFromItem({ percent: 30, customDeliveryUnit: 0 }, item);
   });
+
+  const [result, setResult] = useState(() => {
+    // 기존 데이터인 경우 시트의 최종 금액들을 우선 로드
+    if (item?.isLegacy && item?.legacyResult) {
+      const lr = item.legacyResult;
+      const qty = item.qty || 1;
+      return {
+        totalCostUnit: lr.totalCostAll || 0, // 시트의 '생산합계'는 개당 금액
+        totalCostAll: (lr.totalCostAll || 0) * qty, // 총 생산원가
+        finalDeliveryUnit: lr.finalDeliveryUnit || 0, // 납품가(개당)
+        finalDeliveryAll: lr.finalDeliveryAll || 0, // 납품가 합계
+        finalDeliveryAllVAT: lr.finalDeliveryAllVAT || 0, // 납품가+부가세
+        marginAmountUnit: lr.marginAmountUnit || 0, // 마진(개당)
+        percent: lr.percent || 0, // 마진%
+        netYard: 0, grossYard: 0, fabricTotalCost: 0, fabricUnitCost: 0, bodyNetYard: 0
+      };
+    }
+    return {
+      netYard: 0, grossYard: 0, fabricTotalCost: 0, fabricUnitCost: 0, 
+      totalCostUnit: 0, totalCostAll: 0, marginAmountUnit: 0, 
+      finalDeliveryUnit: 0, finalDeliveryAll: 0, finalDeliveryAllVAT: 0,
+      bodyNetYard: 0
+    };
+  });
+
+  // 기존 데이터 모드: 계산기가 초기 실행 시 덮어쓰지 않도록 보호
+  const [isLegacyLocked, setIsLegacyLocked] = useState(item?.isLegacy || false);
 
   const handleSpecChange = (e) => {
     const { name, value } = e.target;
@@ -713,6 +742,9 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
         finalDeliveryUnit = totalCostUnit + marginAmountUnit;
       }
 
+      // 기존 데이터 모드일 때는 계산기 실행 건너뛰 (시트 값 보존)
+      if (isLegacyLocked) return;
+
       setResult({
         netYard, 
         fabricTotalCost: totalFabricCostAll, 
@@ -737,7 +769,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     } catch(err) {
       console.log(err);
     }
-  }, [specs, costs, margin, extras]);
+  }, [specs, costs, margin, extras, isLegacyLocked]);
 
   const handleFinalSave = async () => {
     // 코멘트 데이터를 JSON 문자열로 저장
@@ -748,7 +780,13 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
       factory: costs.factory,
       marginInfo: result,
       comments: commentsJson,
-      currentUser: currentUser || ''
+      currentUser: currentUser || '',
+      // 금융 데이터 명시적 전달 (시트 컬럼 저장용)
+      totalCostAll: result.totalCostUnit || 0, // 시트의 '생산합계'는 개당
+      finalDeliveryUnit: result.finalDeliveryUnit || 0,
+      finalDeliveryAll: result.finalDeliveryAll || 0,
+      finalDeliveryAllVAT: result.finalDeliveryAllVAT || 0,
+      marginAmountUnit: result.marginAmountUnit || 0
     };
 
     // 만약 출고 일자가 선택되어 있다면 구글 캘린더 등록 시도
@@ -797,8 +835,43 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                 {customerInfo.consultType === '신규' ? '✨ 신규 상담' : '🔄 재상담'}
               </div>
               <div>
-                <div style={{fontSize:'12px', color:'#64748b', marginBottom:'2px'}}>주문 고유번호: <span style={{fontWeight:'700', color:'#1e293b'}}>{item?.id}</span></div>
-                <h2 style={{margin:0, fontSize:'20px', fontWeight:800}}>{customerInfo.company}</h2>
+                <div style={{fontSize:'12px', color:'#64748b', marginBottom:'2px', display:'flex', alignItems:'center', gap:'8px'}}>
+                  주문 고유번호: <span style={{fontWeight:'700', color:'#1e293b'}}>{item?.id}</span>
+                  <span style={{
+                    fontSize:'10px', fontWeight:'800', padding:'1px 6px', borderRadius:'4px',
+                    background: item.isLegacy ? '#f3e8ff' : '#dbeafe',
+                    color: item.isLegacy ? '#7e22ce' : '#1d4ed8',
+                    border: `1px solid ${item.isLegacy ? '#c084fc' : '#60a5fa'}`
+                  }}>
+                    {item.isLegacy ? '💾 기존 데이터' : '🌐 웹앱 데이터'}
+                  </span>
+                </div>
+                <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                  <h2 style={{margin:0, fontSize:'20px', fontWeight:800}}>{customerInfo.company}</h2>
+                  {item.isLegacy && (
+                    <button
+                      onClick={() => {
+                        if (isLegacyLocked) {
+                          if (window.confirm('기존 데이터 잠금을 해제하면 자동 계산기가 작동합니다.\n시트에 저장된 금액이 새로 계산된 값으로 변경될 수 있습니다.\n\n잠금을 해제하시겠습니까?')) {
+                            setIsLegacyLocked(false);
+                          }
+                        } else {
+                          setIsLegacyLocked(true);
+                        }
+                      }}
+                      style={{
+                        fontSize:'12px', fontWeight:700, padding:'4px 14px', borderRadius:'6px', cursor:'pointer',
+                        display:'flex', alignItems:'center', gap:'6px',
+                        background: isLegacyLocked ? '#fef3c7' : '#dcfce7',
+                        color: isLegacyLocked ? '#92400e' : '#166534',
+                        border: `1px solid ${isLegacyLocked ? '#fbbf24' : '#4ade80'}`,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {isLegacyLocked ? '🔒 잠금 (시트 금액 보존 중)' : '🔓 잠금해제 (자동계산 활성화)'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

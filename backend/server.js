@@ -139,6 +139,14 @@ const mapFrontendToSheet = (data) => {
     '생산공장': data.factory || '미정',
     '공임': data.laborContent || '',
     '공임가격': data.laborUnit || 0,
+    '생산합계': data.totalCostAll || 0,
+    '납품가': data.finalDeliveryUnit || 0,
+    '납품가합계': data.finalDeliveryAll || 0,
+    '부가세': Math.round((data.finalDeliveryAll || 0) * 0.1),
+    '납품가합계+부가세': data.finalDeliveryAllVAT || 0,
+    '마진가격': data.marginAmountUnit || 0,
+    '마진%': data.percent || 0,
+    '마진합계': (data.finalDeliveryAll || 0) - (data.totalCostAll || 0),
     '원단01업체': data.fabricSupplier || '미정',
     '원단01내용': data.fabricContent || data.fabricName || '',
     '원단01가격': data.fabricPrice || 0,
@@ -312,7 +320,16 @@ const mapSheetToFrontend = (rowData) => {
     ...(detailData.extraInfo || {}),
     fabricName: detailData.fabricName || '메인 원단',
     fabricContent: detailData.fabricContent || rowData['원단01내용'] || '',
-    comments: detailData.comments || ''
+    comments: detailData.comments || '',
+    isLegacy: !rowData['상세계산데이터'], // 상세데이터 JSON이 없으면 기존 데이터로 간주
+    legacyResult: !rowData['상세계산데이터'] ? {
+      totalCostAll: parseInt(rowData['생산합계']) || 0,
+      finalDeliveryUnit: parseInt(rowData['납품가']) || 0,
+      finalDeliveryAll: parseInt(rowData['납품가합계']) || 0,
+      finalDeliveryAllVAT: parseInt(rowData['납품가합계+부가세']) || 0,
+      marginAmountUnit: parseInt(rowData['마진가격']) || 0,
+      percent: parseFloat(rowData['마진%']) || 0
+    } : null
   };
 };
 
