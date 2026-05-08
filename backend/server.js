@@ -319,17 +319,30 @@ const mapSheetToFrontend = (rowData) => {
     ...(detailData.customerInfo || {}),
     ...(detailData.extraInfo || {}),
     fabricName: detailData.fabricName || '메인 원단',
-    fabricContent: detailData.fabricContent || rowData['원단01내용'] || '',
+    fabricContent: detailData.fabricContent || [
+      rowData['원단01내용'] ? `[원단01] ${rowData['원단01내용']}` : '',
+      rowData['원단02내용'] ? `[원단02] ${rowData['원단02내용']}` : ''
+    ].filter(Boolean).join('\n') || '',
     comments: detailData.comments || '',
     isLegacy: !rowData['상세계산데이터'], // 상세데이터 JSON이 없으면 기존 데이터로 간주
-    legacyResult: !rowData['상세계산데이터'] ? {
-      totalCostAll: parseInt(rowData['생산합계']) || 0,
-      finalDeliveryUnit: parseInt(rowData['납품가']) || 0,
-      finalDeliveryAll: parseInt(rowData['납품가합계']) || 0,
-      finalDeliveryAllVAT: parseInt(rowData['납품가합계+부가세']) || 0,
-      marginAmountUnit: parseInt(rowData['마진가격']) || 0,
-      percent: parseFloat(rowData['마진%']) || 0
-    } : null
+    legacyResult: !rowData['상세계산데이터'] ? (() => {
+      const totalCostUnit = parseInt(rowData['생산합계']) || 0;
+      const deliveryUnit = parseInt(rowData['납품가']) || 0;
+      let calculatedPercent = 0;
+      if (deliveryUnit > 0 && totalCostUnit > 0) {
+        calculatedPercent = Math.round(((deliveryUnit - totalCostUnit) / deliveryUnit) * 1000) / 10;
+      } else {
+        calculatedPercent = parseFloat(rowData['마진%']) || 0;
+      }
+      return {
+        totalCostAll: totalCostUnit, // 시트의 '생산합계'는 개당 금액
+        finalDeliveryUnit: deliveryUnit,
+        finalDeliveryAll: parseInt(rowData['납품가합계']) || 0,
+        finalDeliveryAllVAT: parseInt(rowData['납품가합계+부가세']) || 0,
+        marginAmountUnit: parseInt(rowData['마진가격']) || 0,
+        percent: calculatedPercent
+      };
+    })() : null
   };
 };
 

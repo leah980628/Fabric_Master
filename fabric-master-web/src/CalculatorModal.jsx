@@ -524,9 +524,9 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   const handleDeliveryPriceChange = (e) => {
     const val = parseFloat(e.target.value) || 0;
     let newPercent = margin.percent;
-    if (val > 0 && result.totalCostUnit > 0) {
-      // (납품가 - 원가) / 원가 * 100
-      newPercent = Math.round(((val - result.totalCostUnit) / result.totalCostUnit) * 1000) / 10;
+    if (val > 0) {
+      // (납품가 - 원가) / 납품가 * 100
+      newPercent = Math.round(((val - result.totalCostUnit) / val) * 1000) / 10;
     }
     setMargin({ percent: newPercent, customDeliveryUnit: val });
   };
@@ -738,8 +738,13 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
         finalDeliveryUnit = margin.customDeliveryUnit;
         marginAmountUnit = finalDeliveryUnit - totalCostUnit;
       } else {
-        marginAmountUnit = totalCostUnit * (margin.percent / 100);
-        finalDeliveryUnit = totalCostUnit + marginAmountUnit;
+        // 판매가 대비 마진율 계산: 납품가 = 원가 / (1 - 마진율)
+        if (margin.percent >= 100) {
+          finalDeliveryUnit = totalCostUnit; // 100% 이상은 오류 방지
+        } else {
+          finalDeliveryUnit = totalCostUnit / (1 - (margin.percent / 100));
+        }
+        marginAmountUnit = finalDeliveryUnit - totalCostUnit;
       }
 
       // 기존 데이터 모드일 때는 계산기 실행 건너뛰 (시트 값 보존)
