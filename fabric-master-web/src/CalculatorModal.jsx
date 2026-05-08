@@ -36,6 +36,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     type: "1번 기본형(가로*세로)",
     fabricSupplier: "미정",
     fabricName: "메인 원단",
+    fabricContent: "",
     w: 0, h: 0, d: 0, sideD: 0,
     qty: 100, fabricWidth: 63, fabricPrice: 0,
     topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3,
@@ -241,7 +242,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
       }
 
       const isStringField = name === 'type' || name === 'fabricSupplier';
-      const finalVal = isStringField ? value : numVal;
+      const finalVal = isStringField || name === 'fabricContent' ? value : numVal;
       
       const newSpecs = { ...prev, [name]: finalVal, type: newType };
 
@@ -1221,6 +1222,19 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                       }
                     }));
                   }} className="form-control" placeholder="예: 10수 캔버스 화이트"/></div>
+                  
+                  <div className="form-group">
+                    <label>원단 내용 (상세 사양)</label>
+                    <textarea 
+                      name="fabricContent" 
+                      value={specs.fabricContent} 
+                      onChange={handleSpecChange} 
+                      className="form-control" 
+                      rows="3" 
+                      style={{fontSize:'12px', background:'#f0f9ff', borderColor:'#bae6fd', borderRadius:'6px'}}
+                      placeholder="원단에 대한 상세 설명, 가공 방법 등을 자유롭게 기록하세요."
+                    />
+                  </div>
                   <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}>
                     <div className="form-group" style={{margin:0}}><label>원단폭(inch)</label><input type="number" name="fabricWidth" value={specs.fabricWidth} onChange={handleSpecChange} className="form-control"/></div>
                     <div className="form-group" style={{margin:0}}><label>야드단가(원)</label><input type="number" name="fabricPrice" value={specs.fabricPrice} onChange={handleSpecChange} className="form-control"/></div>

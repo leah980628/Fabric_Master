@@ -140,7 +140,7 @@ const mapFrontendToSheet = (data) => {
     '공임': data.laborContent || '',
     '공임가격': data.laborUnit || 0,
     '원단01업체': data.fabricSupplier || '미정',
-    '원단01내용': data.fabricName || '',
+    '원단01내용': data.fabricContent || data.fabricName || '',
     '원단01가격': data.fabricPrice || 0,
     '원단02업체': '', '원단02내용': '', '원단02가격': '',
     '웨빙01업체': data.webbingSupplier || '미정',
@@ -310,6 +310,8 @@ const mapSheetToFrontend = (rowData) => {
     ...(detailData.margin || {}),
     ...(detailData.customerInfo || {}),
     ...(detailData.extraInfo || {}),
+    fabricName: detailData.fabricName || '메인 원단',
+    fabricContent: detailData.fabricContent || rowData['원단01내용'] || '',
     comments: detailData.comments || ''
   };
 };
