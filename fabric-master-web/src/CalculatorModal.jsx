@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const BAG_TYPES = [
+const bagTypes = [
   "1번 기본형(가로*세로)", 
   "1-1번 분리형(가로*세로)", 
   "2번 기본형(가로*세로*밑면)", 
@@ -8,16 +8,16 @@ const BAG_TYPES = [
   "3-1번 U자형(앞뒤분리)"
 ];
 
-const FACTORY_LIST_DEFAULT = ["미정"];
+const factoryListDefault = ["미정"];
 
-const FABRIC_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "성광", "신진", "대성", "유림", "태양"];
-const WEBBING_SUPPLIER_LIST_DEFAULT = ["미정", "성광", "동대문", "광일", "삼호"];
-const BIAS_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "성광", "유림"];
-const METAL_SUPPLIER_LIST_DEFAULT = ["미정", "동대문", "신진", "대성"];
-const PRINT_SUPPLIER_LIST_DEFAULT = ["미정", "나래인쇄", "하나인쇄", "태양인쇄", "성진인쇄"];
-const FREIGHT_SUPPLIER_LIST_DEFAULT = ["미정", "로젠택배", "경동택배", "대신화물", "직접납품"];
+const fabricSupplierListDefault = ["미정", "동대문", "성광", "신진", "대성", "유림", "태양"];
+const webbingSupplierListDefault = ["미정", "성광", "동대문", "광일", "삼호"];
+const biasSupplierListDefault = ["미정", "동대문", "성광", "유림"];
+const metalSupplierListDefault = ["미정", "동대문", "신진", "대성"];
+const printSupplierListDefault = ["미정", "나래인쇄", "하나인쇄", "태양인쇄", "성진인쇄"];
+const freightSupplierListDefault = ["미정", "로젠택배", "경동택배", "대신화물", "직접납품"];
 
-export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelete, onStatusChange, PIPELINE_STAGES }) {
+export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelete, onStatusChange, pipelineStages, currentUser }) {
   const [activeTab, setActiveTab] = useState('가방사양');
 
   const initFromItem = (defaultObj, itemObj) => {
@@ -36,7 +36,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     type: "1번 기본형(가로*세로)",
     fabricSupplier: "미정",
     fabricName: "메인 원단",
-    w: 36, h: 36, d: 10, sideD: 10,
+    w: 0, h: 0, d: 0, sideD: 0,
     qty: 100, fabricWidth: 63, fabricPrice: 0,
     topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3,
     useSeparateBodyFabric: false,
@@ -47,13 +47,13 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     }
   }, item));
 
-  const [fabricSuppliers, setFabricSuppliers] = useState(FABRIC_SUPPLIER_LIST_DEFAULT);
-  const [factories, setFactories] = useState(FACTORY_LIST_DEFAULT);
-  const [webbingSuppliers, setWebbingSuppliers] = useState(WEBBING_SUPPLIER_LIST_DEFAULT);
-  const [biasSuppliers, setBiasSuppliers] = useState(BIAS_SUPPLIER_LIST_DEFAULT);
-  const [metalSuppliers, setMetalSuppliers] = useState(METAL_SUPPLIER_LIST_DEFAULT);
-  const [printSuppliers, setPrintSuppliers] = useState(PRINT_SUPPLIER_LIST_DEFAULT);
-  const [freightSuppliers, setFreightSuppliers] = useState(FREIGHT_SUPPLIER_LIST_DEFAULT);
+  const [fabricSuppliers, setFabricSuppliers] = useState(fabricSupplierListDefault);
+  const [factories, setFactories] = useState(factoryListDefault);
+  const [webbingSuppliers, setWebbingSuppliers] = useState(webbingSupplierListDefault);
+  const [biasSuppliers, setBiasSuppliers] = useState(biasSupplierListDefault);
+  const [metalSuppliers, setMetalSuppliers] = useState(metalSupplierListDefault);
+  const [printSuppliers, setPrintSuppliers] = useState(printSupplierListDefault);
+  const [freightSuppliers, setFreightSuppliers] = useState(freightSupplierListDefault);
 
   // 1-1. 부가 원단 부속 (재끈, 안주머니, 기타)
   const [extras, setExtras] = useState(() => initFromItem({
@@ -81,10 +81,21 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   };
 
   const handleExtraFabricChange = (part, field, value) => {
-    setExtras(prev => ({
-      ...prev,
-      [`${part}Fabric`]: { ...prev[`${part}Fabric`], [field]: field === 'isCustom' ? value : (field === 'supplier' || field === 'name' ? value : (parseFloat(value) || 0)) }
-    }));
+    setExtras(prev => {
+      const prevFabric = prev[`${part}Fabric`];
+      let newFabric = { ...prevFabric, [field]: value };
+      
+      // 별도설정이 켜지면 기본값을 '미정' 등으로 초기화
+      if (field === 'isCustom' && value === true) {
+        newFabric.supplier = '미정';
+        newFabric.name = ''; // 이름도 초기화 (필요시)
+      }
+
+      return {
+        ...prev,
+        [`${part}Fabric`]: newFabric
+      };
+    });
   };
 
   const handleBodyPartFabricChange = (part, field, value) => {
@@ -131,6 +142,19 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   const [proofFiles, setProofFiles] = useState([]);
   const [selectedProof, setSelectedProof] = useState(null);
   const [isFetchingProofs, setIsFetchingProofs] = useState(false);
+
+  // 코멘트 기능 상태
+  const [comments, setComments] = useState(() => {
+    // 기존 코멘트 파싱 ("[작업자 MM/DD HH:mm] 내용" 형식)
+    const raw = item?.comments || '';
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) { /* JSON 파싱 실패 시 문자열로 처리 */ }
+    return raw ? [{ author: '', text: raw, time: '' }] : [];
+  });
+  const [newComment, setNewComment] = useState('');
 
   // 공장 및 업체 목록 동적 로딩 (분류별 필터링)
   useEffect(() => {
@@ -216,7 +240,30 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
         newType = value;
       }
 
-      return { ...prev, [name]: name === 'type' || name === 'fabricSupplier' ? value : numVal, type: newType };
+      const isStringField = name === 'type' || name === 'fabricSupplier';
+      const finalVal = isStringField ? value : numVal;
+      
+      const newSpecs = { ...prev, [name]: finalVal, type: newType };
+
+      // 메인 원단 정보 변경 시 부위별 원단 동기화
+      if (name === 'fabricWidth' || name === 'fabricPrice' || name === 'fabricSupplier') {
+        const propMap = { fabricWidth: 'width', fabricPrice: 'price', fabricSupplier: 'supplier' };
+        const bodyProp = propMap[name];
+        const defaultVal = name === 'fabricWidth' ? 63 : name === 'fabricPrice' ? 0 : '미정';
+        
+        const shouldSync = (part) => {
+          const partVal = prev.bodyParts[part][bodyProp];
+          return partVal === defaultVal || partVal === prev[name];
+        };
+
+        newSpecs.bodyParts = {
+          partA: { ...prev.bodyParts.partA, [bodyProp]: shouldSync('partA') ? finalVal : prev.bodyParts.partA[bodyProp] },
+          partB: { ...prev.bodyParts.partB, [bodyProp]: shouldSync('partB') ? finalVal : prev.bodyParts.partB[bodyProp] },
+          partC: { ...prev.bodyParts.partC, [bodyProp]: shouldSync('partC') ? finalVal : prev.bodyParts.partC[bodyProp] },
+        };
+      }
+
+      return newSpecs;
     });
   };
 
@@ -692,10 +739,15 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   }, [specs, costs, margin, extras]);
 
   const handleFinalSave = async () => {
+    // 코멘트 데이터를 JSON 문자열로 저장
+    const commentsJson = JSON.stringify(comments);
+
     const data = {
       ...specs, ...costs, ...extras, ...extraInfo, ...bagSpecs, ...customerInfo, ...margin,
       factory: costs.factory,
-      marginInfo: result
+      marginInfo: result,
+      comments: commentsJson,
+      currentUser: currentUser || ''
     };
 
     // 만약 출고 일자가 선택되어 있다면 구글 캘린더 등록 시도
@@ -729,9 +781,9 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   return (
     <div className="modal-overlay" style={{background: 'rgba(15, 23, 42, 0.6)'}}>
       <div className="modal-content" style={{maxWidth: '1300px', width: '98vw', height: '92vh'}}>
-        <div className="modal-header" style={{padding: '16px 24px', display:'flex', justifyContent:'space-between', alignItems:'center', background: '#f8fafc', borderBottom: '1px solid #e2e8f0'}}>
-          <div style={{display:'flex', alignItems:'center', gap:'20px'}}>
-            <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+        <div className="modal-header-container">
+          <div className="modal-header-content">
+            <div className="modal-header-info">
               <div style={{
                 padding:'4px 12px', 
                 borderRadius:'20px', 
@@ -749,36 +801,38 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
               </div>
             </div>
 
-            <div style={{display:'flex', gap:'8px', borderLeft:'1px solid #e2e8f0', paddingLeft:'20px'}}>
-              <button 
-                onClick={() => {
-                  const newItem = onCopy(item.id);
-                  if (newItem) onClose();
-                }}
-                style={{padding:'6px 14px', background:'white', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:600, display:'flex', alignItems:'center', gap:'6px', color:'#475569'}}>
-                📋 복사
-              </button>
-              <button 
-                onClick={() => {
-                  onDelete(item.id);
-                  onClose();
-                }}
-                style={{padding:'6px 14px', background:'#fff1f2', border:'1px solid #fecaca', color:'#ef4444', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:600, display:'flex', alignItems:'center', gap:'6px'}}>
-                🗑️ 삭제
-              </button>
-            </div>
+            <div className="modal-header-controls">
+              <div className="modal-header-actions">
+                <button 
+                  onClick={() => {
+                    const newItem = onCopy(item.id);
+                    if (newItem) onClose();
+                  }}
+                  style={{padding:'6px 14px', background:'white', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:600, display:'flex', alignItems:'center', gap:'6px', color:'#475569'}}>
+                  📋 복사
+                </button>
+                <button 
+                  onClick={() => {
+                    onDelete(item.id);
+                    onClose();
+                  }}
+                  style={{padding:'6px 14px', background:'#fff1f2', border:'1px solid #fecaca', color:'#ef4444', borderRadius:'8px', cursor:'pointer', fontSize:'13px', fontWeight:600, display:'flex', alignItems:'center', gap:'6px'}}>
+                  🗑️ 삭제
+                </button>
+              </div>
 
-            <div style={{display:'flex', alignItems:'center', gap:'8px', background:'white', padding:'4px 12px', borderRadius:'8px', border:'1px solid #cbd5e1'}}>
-              <span style={{fontSize:'12px', fontWeight:700, color:'#64748b'}}>진행 단계:</span>
-              <select 
-                value={item.status} 
-                onChange={(e) => onStatusChange(item.id, e.target.value)}
-                style={{padding:'4px 8px', borderRadius:'6px', border:'none', background:'transparent', fontSize:'14px', fontWeight:800, color:'#4f46e5', cursor:'pointer', outline:'none'}}>
-                {PIPELINE_STAGES?.map(stage => <option key={stage} value={stage}>{stage}</option>)}
-              </select>
+              <div className="modal-header-status">
+                <span style={{fontSize:'12px', fontWeight:700, color:'#64748b'}}>진행 단계:</span>
+                <select 
+                  value={item.status} 
+                  onChange={(e) => onStatusChange(item.id, e.target.value)}
+                  style={{padding:'4px 8px', borderRadius:'6px', border:'none', background:'transparent', fontSize:'14px', fontWeight:800, color:'#4f46e5', cursor:'pointer', outline:'none'}}>
+                  {pipelineStages?.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+                </select>
+              </div>
             </div>
           </div>
-          <button className="close-btn" onClick={onClose} style={{fontSize: '28px', color: '#64748b', cursor: 'pointer', border: 'none', background: 'none'}}>&times;</button>
+          <button className="close-btn" onClick={onClose}>&times;</button>
         </div>
 
         <div className="tab-button-group" style={{display: 'flex', background: '#f8fafc', padding: '0 24px', borderBottom: '1px solid #e2e8f0'}}>
@@ -836,7 +890,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   </div>
                 </div>
 
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px'}}>
+                <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px'}}>
                   <div className="form-group">
                     <label>업체명 (고객명)</label>
                     <input type="text" name="company" value={customerInfo.company} onChange={handleCustomerInfoChange} className="form-control" style={{fontSize:'16px', padding:'12px'}} />
@@ -847,7 +901,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   </div>
                 </div>
 
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', marginTop:'20px'}}>
+                <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', marginTop:'20px'}}>
                   <div className="form-group">
                     <label>연락처 1</label>
                     <div style={{display:'flex', gap:'8px'}}>
@@ -891,7 +945,12 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
                 <div className="form-group" style={{marginTop:'20px'}}>
                   <label>사용 (납품) 예정일</label>
-                  <input type="date" name="targetDate" value={bagSpecs.targetDate} onChange={handleBagSpecsChange} className="form-control" style={{fontSize:'16px', padding:'12px'}} />
+                  <div style={{display:'flex', gap:'8px'}}>
+                    <input type="date" name="targetDate" value={bagSpecs.targetDate} onChange={handleBagSpecsChange} className="form-control" style={{fontSize:'16px', padding:'12px', flex:1}} />
+                    {bagSpecs.targetDate && (
+                      <button onClick={() => setBagSpecs(prev => ({...prev, targetDate: ''}))} style={{padding:'0 16px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'13px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="form-group" style={{marginTop:'32px', borderTop:'2px solid #f1f5f9', paddingTop:'24px'}}>
@@ -916,6 +975,91 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                     }}
                     placeholder="상세한 상담 내용, 고객의 요구사항 변화, 히스토리 등을 자유롭게 기록하세요."></textarea>
                   <p style={{fontSize:'12px', color:'#94a3b8', marginTop:'8px'}}>* 칸 우측 하단을 드래그하여 높이를 조절할 수 있습니다.</p>
+                </div>
+
+                {/* 팀 코멘트 섹션 */}
+                <div style={{marginTop:'32px', borderTop:'2px solid #e0e7ff', paddingTop:'24px'}}>
+                  <label style={{fontSize:'16px', fontWeight:'800', color:'#4f46e5', display:'flex', alignItems:'center', gap:'8px', marginBottom:'16px'}}>
+                    <span>📝</span> 팀 코멘트
+                    {comments.length > 0 && (
+                      <span style={{fontSize:'12px', background:'rgba(79,70,229,0.1)', color:'#4f46e5', padding:'2px 8px', borderRadius:'10px', fontWeight:600}}>
+                        {comments.length}개
+                      </span>
+                    )}
+                  </label>
+
+                  {/* 기존 코멘트 목록 */}
+                  <div style={{display:'flex', flexDirection:'column', gap:'10px', marginBottom:'16px', maxHeight:'300px', overflowY:'auto'}}>
+                    {comments.length === 0 ? (
+                      <div style={{textAlign:'center', color:'#94a3b8', padding:'20px', background:'#f8fafc', borderRadius:'12px', fontSize:'14px'}}>
+                        아직 코멘트가 없습니다. 첫 코멘트를 남겨보세요!
+                      </div>
+                    ) : (
+                      comments.map((c, idx) => (
+                        <div key={idx} style={{
+                          padding:'12px 16px', background: c.author === currentUser ? '#eef2ff' : '#f8fafc',
+                          borderRadius:'12px', border: c.author === currentUser ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                          position:'relative'
+                        }}>
+                          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
+                            <span style={{fontSize:'13px', fontWeight:700, color: c.author === currentUser ? '#4f46e5' : '#475569'}}>
+                              👤 {c.author || '알 수 없음'}
+                            </span>
+                            <span style={{fontSize:'11px', color:'#94a3b8'}}>{c.time}</span>
+                          </div>
+                          <div style={{fontSize:'14px', color:'#334155', lineHeight:'1.5', whiteSpace:'pre-wrap'}}>{c.text}</div>
+                          {c.author === currentUser && (
+                            <button
+                              onClick={() => setComments(prev => prev.filter((_, i) => i !== idx))}
+                              style={{position:'absolute', top:'8px', right:'8px', background:'none', border:'none', cursor:'pointer', fontSize:'12px', color:'#94a3b8', padding:'4px'}}
+                              title="삭제"
+                            >❌</button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* 새 코멘트 입력 */}
+                  <div style={{display:'flex', gap:'8px', alignItems:'flex-end'}}>
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder={`${currentUser || '작업자'}님, 코멘트를 입력하세요...`}
+                      className="form-control"
+                      rows="2"
+                      style={{flex:1, fontSize:'14px', padding:'12px', borderRadius:'10px', resize:'none'}}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (newComment.trim()) {
+                            const now = new Date();
+                            const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                            setComments(prev => [...prev, { author: currentUser || '미지정', text: newComment.trim(), time: timeStr }]);
+                            setNewComment('');
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newComment.trim()) {
+                          const now = new Date();
+                          const timeStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                          setComments(prev => [...prev, { author: currentUser || '미지정', text: newComment.trim(), time: timeStr }]);
+                          setNewComment('');
+                        }
+                      }}
+                      disabled={!newComment.trim()}
+                      style={{
+                        padding:'12px 20px', background: newComment.trim() ? '#4f46e5' : '#cbd5e1',
+                        color:'white', border:'none', borderRadius:'10px', fontWeight:700, fontSize:'14px',
+                        cursor: newComment.trim() ? 'pointer' : 'not-allowed', whiteSpace:'nowrap',
+                        transition:'all 0.2s'
+                      }}
+                    >등록</button>
+                  </div>
+                  <p style={{fontSize:'11px', color:'#94a3b8', marginTop:'6px'}}>* Enter로 빠른 등록, Shift+Enter로 줄바꾼. 저장 버튼을 눌러야 시트에 반영됩니다.</p>
                 </div>
               </div>
             </div>
@@ -1042,7 +1186,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                 <div className="form-group">
                   <label>가방 형태</label>
                   <select name="type" value={specs.type} onChange={handleSpecChange} className="form-control">
-                    {BAG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    {bagTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
 
@@ -1065,7 +1209,18 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
                 <h4 style={{fontSize:'13px', color:'#475569', marginBottom:'8px'}}>시접 및 원단 단가</h4>
                 <div style={{background:'white', padding:'16px', borderRadius:'8px', border:'1px solid #e2e8f0', marginBottom:'16px'}}>
-                  <div className="form-group"><label>메인 원단명</label><input type="text" name="fabricName" value={specs.fabricName} onChange={(e) => setSpecs(prev => ({...prev, fabricName: e.target.value}))} className="form-control" placeholder="예: 10수 캔버스 화이트"/></div>
+                  <div className="form-group"><label>메인 원단명</label><input type="text" name="fabricName" value={specs.fabricName} onChange={(e) => {
+                    const newName = e.target.value;
+                    setSpecs(prev => ({
+                      ...prev, 
+                      fabricName: newName,
+                      bodyParts: {
+                        partA: { ...prev.bodyParts.partA, name: prev.bodyParts.partA.name === '' || prev.bodyParts.partA.name === prev.fabricName ? newName : prev.bodyParts.partA.name },
+                        partB: { ...prev.bodyParts.partB, name: prev.bodyParts.partB.name === '' || prev.bodyParts.partB.name === prev.fabricName ? newName : prev.bodyParts.partB.name },
+                        partC: { ...prev.bodyParts.partC, name: prev.bodyParts.partC.name === '' || prev.bodyParts.partC.name === prev.fabricName ? newName : prev.bodyParts.partC.name },
+                      }
+                    }));
+                  }} className="form-control" placeholder="예: 10수 캔버스 화이트"/></div>
                   <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}>
                     <div className="form-group" style={{margin:0}}><label>원단폭(inch)</label><input type="number" name="fabricWidth" value={specs.fabricWidth} onChange={handleSpecChange} className="form-control"/></div>
                     <div className="form-group" style={{margin:0}}><label>야드단가(원)</label><input type="number" name="fabricPrice" value={specs.fabricPrice} onChange={handleSpecChange} className="form-control"/></div>
@@ -1882,7 +2037,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
                 <div style={{background:'#ffffff', padding:'20px', borderRadius:'12px', border:'2px solid #6366f1'}}>
                   <div style={{fontWeight:'700', color:'#4f46e5', marginBottom:'16px'}}>마진 세팅 (직접 제어)</div>
-                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
+                  <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
                     <div className="form-group" style={{margin:0}}>
                       <label>마진율 (%)</label>
                       <div style={{display:'flex', alignItems:'center', background:'#f1f5f9', borderRadius:'6px'}}>
@@ -1924,7 +2079,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                     <h4 style={{margin:'0 0 16px 0', fontSize:'16px', color:'#1e293b', display:'flex', alignItems:'center', gap:'8px'}}>
                       <span>💳</span> 결제 담당자 정보
                     </h4>
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                    <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
                       <div className="form-group" style={{margin:0}}>
                         <label>결제 담당자 성함</label>
                         <input type="text" name="paymentPic" value={extraInfo.paymentPic} onChange={handleExtraInfoChange} className="form-control" />
@@ -1958,7 +2113,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                         <option value="기타">기타</option>
                       </select>
                     </div>
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
+                    <div className="responsive-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
                       <div className="form-group">
                         <label>결제 선금 (입금액)</label>
                         <input type="number" name="deposit" value={extraInfo.deposit} onChange={handleExtraInfoChange} className="form-control" />
@@ -1974,11 +2129,21 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                 <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
                   <div className="form-group">
                     <label>세금계산서 1 (발행일/예정일)</label>
-                    <input type="date" name="tax1" value={extraInfo.tax1} onChange={handleExtraInfoChange} className="form-control" />
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <input type="date" name="tax1" value={extraInfo.tax1} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} />
+                      {extraInfo.tax1 && (
+                        <button onClick={() => setExtraInfo(prev => ({...prev, tax1: ''}))} style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                      )}
+                    </div>
                   </div>
                   <div className="form-group">
                     <label>세금계산서 2 (발행일/예정일)</label>
-                    <input type="date" name="tax2" value={extraInfo.tax2} onChange={handleExtraInfoChange} className="form-control" />
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <input type="date" name="tax2" value={extraInfo.tax2} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} />
+                      {extraInfo.tax2 && (
+                        <button onClick={() => setExtraInfo(prev => ({...prev, tax2: ''}))} style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2043,7 +2208,12 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   </div>
                   <div className="form-group">
                     <label>작업지시서(작지) 확인 일자</label>
-                    <input type="date" name="workOrderDate" value={extraInfo.workOrderDate} onChange={handleExtraInfoChange} className="form-control" />
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <input type="date" name="workOrderDate" value={extraInfo.workOrderDate} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} />
+                      {extraInfo.workOrderDate && (
+                        <button onClick={() => setExtraInfo(prev => ({...prev, workOrderDate: ''}))} style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                      )}
+                    </div>
                   </div>
                   <div className="form-group">
                     <label>생산내용 특이사항 체크</label>
@@ -2055,7 +2225,12 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   <h4 style={{margin:0, color:'#166534'}}>출고 및 납품</h4>
                   <div className="form-group">
                     <label>공장 출고 일자</label>
-                    <input type="date" name="factoryShipDate" value={extraInfo.factoryShipDate} onChange={handleExtraInfoChange} className="form-control" />
+                    <div style={{display:'flex', gap:'8px'}}>
+                      <input type="date" name="factoryShipDate" value={extraInfo.factoryShipDate} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} />
+                      {extraInfo.factoryShipDate && (
+                        <button onClick={() => setExtraInfo(prev => ({...prev, factoryShipDate: ''}))} style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                      )}
+                    </div>
                   </div>
                   <div className="form-group">
                     <label>납품(배송) 도착 주소</label>
@@ -2073,15 +2248,15 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
         </div>
 
         {/* BOTTOM GLOBAL ACTION BUTTON */}
-        <div className="modal-footer" style={{padding:'20px 24px', borderTop:'1px solid #e2e8f0', background:'#f8fafc', display:'flex', justifyContent:'space-between'}}>
+        <div className="modal-footer-container">
             <button 
-              onClick={handleGenerateEstimate}
-              style={{padding:'14px 28px', background:'white', color:'#3b82f6', border:'1px solid #3b82f6', borderRadius:'8px', fontWeight:700, fontSize:'15px', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px'}}>
+              className="modal-footer-btn-secondary"
+              onClick={handleGenerateEstimate}>
               📄 견적서 발행 (PDF)
             </button>
             <button 
-              onClick={handleFinalSave}
-              style={{padding:'14px 28px', background:'var(--primary-color)', color:'white', border:'none', borderRadius:'8px', fontWeight:700, fontSize:'15px', cursor:'pointer', boxShadow:'0 4px 6px rgba(16, 185, 129, 0.2)'}}>
+              className="modal-footer-btn-primary"
+              onClick={handleFinalSave}>
               모든 사양 및 정보 저장하기 (상태 전환)
             </button>
         </div>
