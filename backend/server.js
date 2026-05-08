@@ -346,6 +346,59 @@ const mapSheetToFrontend = (rowData) => {
   };
 };
 
+// --- 주문 활동 로그 API ---
+async function logActivity(currentUser, action, company, orderId, details) {
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const now = new Date();
+    // KST 시간대 변환 (로컬 시간이 KST가 아닐 경우 대비)
+    const offset = now.getTimezoneOffset() * 60000;
+    const kstDate = new Date(now.getTime() - offset + (9 * 3600000));
+    const timeStr = `${kstDate.getFullYear()}-${String(kstDate.getMonth()+1).padStart(2,'0')}-${String(kstDate.getDate()).padStart(2,'0')} ${String(kstDate.getHours()).padStart(2,'0')}:${String(kstDate.getMinutes()).padStart(2,'0')}`;
+    
+    const row = [timeStr, currentUser || '시스템', action, company || '', orderId || '', details || ''];
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: MASTER_SHEET_ID,
+      range: '활동로그!A:F',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [row] },
+    });
+  } catch (err) {
+    console.error('활동 로그 기록 실패:', err.message);
+  }
+}
+
+app.get('/api/logs', async (req, res) => {
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: MASTER_SHEET_ID,
+      range: '활동로그!A:F',
+    });
+    
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) return res.json([]);
+    
+    const headers = rows[0];
+    let data = rows.slice(1).map((row, index) => {
+      const rowData = { id: index };
+      headers.forEach((header, i) => { rowData[header] = row[i] || ''; });
+      return rowData;
+    });
+    
+    // 가장 최신 로그가 위로 오도록 정렬 (최대 100건만 반환)
+    data = data.reverse().slice(0, 100);
+    res.json(data);
+  } catch (error) {
+    console.error('활동 로그 조회 에러:', error.message);
+    res.status(500).json({ error: '활동 로그를 불러오는 데 실패했습니다.' });
+  }
+});
+
 // --- 주문 CRUD API ---
 
 // 전체 주문 목록 불러오기 (제작내용 시트)
@@ -434,6 +487,9 @@ app.post('/api/orders', async (req, res) => {
       requestBody: { values: [consultRow] },
     });
 
+    // 활동 로그 기록
+    logActivity(orderData.currentUser, '등록', orderData.company, orderData.id, '신규 업체를 등록했습니다.');
+
     res.json({ success: true });
   } catch (error) {
     console.error('주문 등록 에러:', error.message);
@@ -474,7 +530,21 @@ app.put('/api/orders/:id', async (req, res) => {
     orderData._registeredDate = existingRow[regDateIdx] || '';
     orderData._registeredBy = existingRow[regByIdx] || '';
 
-    // 4. 데이터 매핑 및 업데이트
+    // 4. 상세계산데이터 컬럼 자동 추가 (기존 데이터 잠금 해제 저장용)
+    let detailColIndex = headers.indexOf('상세계산데이터');
+    if (detailColIndex === -1) {
+      headers.push('상세계산데이터');
+      detailColIndex = headers.length - 1;
+      // 시트의 첫 번째 줄(헤더) 업데이트
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: MASTER_SHEET_ID,
+        range: '제작내용!1:1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [headers] },
+      });
+    }
+
+    // 5. 데이터 매핑 및 업데이트
     const sheetData = mapFrontendToSheet(orderData);
     const updatedRow = headers.map(h => sheetData[h] !== undefined ? sheetData[h] : '');
 
@@ -484,6 +554,9 @@ app.put('/api/orders/:id', async (req, res) => {
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [updatedRow] },
     });
+
+    // 활동 로그 기록
+    logActivity(orderData.currentUser, '수정', orderData.company, id, '사양 또는 견적 정보를 수정했습니다.');
 
     res.json({ success: true });
   } catch (error) {
@@ -535,6 +608,10 @@ app.patch('/api/orders/:id/status', async (req, res) => {
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [existingRow] },
     });
+
+    // 활동 로그 기록
+    const company = existingRow[headers.indexOf('업체명')] || '';
+    logActivity(currentUser, '상태변경', company, id, `진행 상태를 '${status}'(으)로 변경했습니다.`);
 
     res.json({ success: true });
   } catch (error) {

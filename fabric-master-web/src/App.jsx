@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import ConsultationModal from './ConsultationModal';
 import CalculatorModal from './CalculatorModal';
 import FactoryManagementModal from './FactoryManagementModal';
+import ActivityLogPanel from './ActivityLogPanel';
 import UserSelectModal, { getCurrentUser, setCurrentUser } from './UserSelectModal';
 import './index.css';
 
@@ -151,6 +152,7 @@ function App() {
   const [items, setItems] = useState(dummyData);
   const [isConsultOpen, setIsConsultOpen] = useState(false);
   const [isFactoryManageOpen, setIsFactoryManageOpen] = useState(false);
+  const [isLogOpen, setIsLogOpen] = useState(false);
   const [calculatorItem, setCalculatorItem] = useState(null);
   const [currentUser, setCurrentUserState] = useState(getCurrentUser());
   const [showUserSelect, setShowUserSelect] = useState(!getCurrentUser());
@@ -443,6 +445,11 @@ function App() {
             👤 {currentUser || '작업자 선택'}
           </button>
           <button 
+            onClick={() => setIsLogOpen(true)}
+            style={{padding: '10px 20px', background: 'rgba(241, 245, 249, 0.8)', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
+            🕒 활동 로그
+          </button>
+          <button 
             onClick={() => setIsFactoryManageOpen(true)}
             style={{padding: '10px 20px', background: 'white', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
             ⚙️ 공장 관리
@@ -503,6 +510,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* 모달 및 패널 영역 */}
+      <ActivityLogPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} />
 
       {isConsultOpen && (
         <ConsultationModal 
