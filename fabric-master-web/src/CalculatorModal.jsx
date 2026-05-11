@@ -1320,7 +1320,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   <input type="number" name="qty" value={specs.qty} onChange={handleSpecChange} className="form-control" style={{borderColor:'#10b981', borderWidth:'2px'}}/>
                 </div>
                 <div className="form-group">
-                  <label>가방 형태</label>
+                  <label>가방 재단 형태</label>
                   <select name="type" value={specs.type} onChange={handleSpecChange} className="form-control">
                     {bagTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
