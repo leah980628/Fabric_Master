@@ -3,6 +3,7 @@ import ConsultationModal from './ConsultationModal';
 import CalculatorModal from './CalculatorModal';
 import FactoryManagementModal from './FactoryManagementModal';
 import SettlementModal from './SettlementModal';
+import OrderListModal from './OrderListModal';
 import ActivityLogPanel from './ActivityLogPanel';
 import UserSelectModal, { getCurrentUser, setCurrentUser } from './UserSelectModal';
 import './index.css';
@@ -154,6 +155,7 @@ function App() {
   const [isConsultOpen, setIsConsultOpen] = useState(false);
   const [isFactoryManageOpen, setIsFactoryManageOpen] = useState(false);
   const [isSettlementOpen, setIsSettlementOpen] = useState(false);
+  const [isOrderListOpen, setIsOrderListOpen] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [calculatorItem, setCalculatorItem] = useState(null);
   const [currentUser, setCurrentUserState] = useState(getCurrentUser());
@@ -457,9 +459,18 @@ function App() {
             ⚙️ 공장 관리
           </button>
           <button 
+            className="nav-btn" 
             onClick={() => setIsSettlementOpen(true)}
-            style={{padding: '10px 20px', background: 'white', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
+            style={{background: 'white', color: '#10b981', border: '1px solid #d1fae5', fontWeight: 700, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}
+          >
             💰 공장 정산
+          </button>
+          <button 
+            className="nav-btn" 
+            onClick={() => setIsOrderListOpen(true)}
+            style={{background: 'white', color: '#6366f1', border: '1px solid #e0e7ff', fontWeight: 700, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}
+          >
+            📊 통합 오더리스트
           </button>
           <button 
             onClick={() => setIsConsultOpen(true)}
@@ -519,7 +530,17 @@ function App() {
       )}
 
       {/* 모달 및 패널 영역 */}
-      <ActivityLogPanel isOpen={isLogOpen} onClose={() => setIsLogOpen(false)} />
+      {isSettlementOpen && (
+        <SettlementModal items={items} onClose={() => setIsSettlementOpen(false)} />
+      )}
+
+      {isOrderListOpen && (
+        <OrderListModal items={items} onClose={() => setIsOrderListOpen(false)} />
+      )}
+
+      {isLogOpen && (
+        <ActivityLogPanel onClose={() => setIsLogOpen(false)} />
+      )}
 
       {isConsultOpen && (
         <ConsultationModal 
@@ -532,10 +553,6 @@ function App() {
         <FactoryManagementModal 
           onClose={() => setIsFactoryManageOpen(false)} 
         />
-      )}
-
-      {isSettlementOpen && (
-        <SettlementModal items={items} onClose={() => setIsSettlementOpen(false)} />
       )}
 
       {calculatorItem && (

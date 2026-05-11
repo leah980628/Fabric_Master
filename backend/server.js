@@ -311,11 +311,19 @@ const mapSheetToFrontend = (rowData) => {
     date: rowData['등록일자'] || '',
     _registeredBy: rowData['등록자'] || '',
     _registeredDate: rowData['등록일자'] || '',
+    // 시트 직접 컬럼 매핑 (JSON이 없는 기존 데이터 대응 및 데이터 누락 방지)
+    finalDeliveryUnit: parseFloat(rowData['납품가']) || 0,
+    finalDeliveryAll: parseFloat(rowData['납품가합계']) || 0,
+    finalDeliveryAllVAT: parseFloat(rowData['납품가합계+부가세']) || 0,
+    totalCostUnit: parseFloat(rowData['생산합계']) || 0,
+    marginAmountUnit: parseFloat(rowData['마진가격']) || 0,
+    marginPercent: parseFloat(rowData['마진%']) || 0,
     // 세부 계산 파라미터 복원
     ...(detailData.specs || {}),
     ...(detailData.extras || {}),
     ...(detailData.costs || {}),
     ...(detailData.margin || {}),
+    ...(detailData.marginInfo || {}),
     ...(detailData.customerInfo || {}),
     ...(detailData.extraInfo || {}),
     fabricName: detailData.fabricName || '메인 원단',
@@ -745,6 +753,217 @@ app.post('/api/reports/settlement', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// --- 통합 오더리스트 내보내기 (계산서 발행 기준) ---
+app.post('/api/reports/order-list', async (req, res) => {
+  try {
+    const { month, data } = req.body;
+    if (!month || !data || !Array.isArray(data)) {
+      return res.status(400).json({ success: false, error: '잘못된 데이터 형식입니다.' });
+    }
+
+    const client = await auth.getClient();
+    const drive = google.drive({ version: 'v3', auth: client });
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    const [year, monthNum] = month.split('-');
+    const fileName = `${year}년_오더리스트`;
+    const sheetTitle = `${year.slice(2)}년${parseInt(monthNum)}월`;
+    const folderName = '오더리스트';
+
+    // 1. '오더리스트' 폴더 찾기 또는 생성
+    let folderId = '';
+    const folderRes = await drive.files.list({
+      q: `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and '${ROOT_DRIVE_FOLDER_ID}' in parents and trashed = false`,
+      fields: 'files(id)',
+      spaces: 'drive',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    if (folderRes.data.files.length > 0) {
+      folderId = folderRes.data.files[0].id;
+    } else {
+      const newFolder = await drive.files.create({
+        requestBody: {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [ROOT_DRIVE_FOLDER_ID]
+        },
+        fields: 'id',
+        supportsAllDrives: true
+      });
+      folderId = newFolder.data.id;
+    }
+
+    // 2. 해당 연도의 파일이 이미 있는지 확인
+    const fileRes = await drive.files.list({
+      q: `name = '${fileName}' and mimeType = 'application/vnd.google-apps.spreadsheet' and '${folderId}' in parents and trashed = false`,
+      fields: 'files(id)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    let spreadsheetId = '';
+    if (fileRes.data.files.length > 0) {
+      spreadsheetId = fileRes.data.files[0].id;
+    } else {
+      // 연도별 스프레드시트 새로 생성
+      const newSheet = await drive.files.create({
+        requestBody: {
+          name: fileName,
+          mimeType: 'application/vnd.google-apps.spreadsheet',
+          parents: [folderId]
+        },
+        fields: 'id',
+        supportsAllDrives: true
+      });
+      spreadsheetId = newSheet.data.id;
+    }
+
+    // 3. 월별 탭(Sheet) 확인 및 생성
+    const spreadsheetRes = await sheets.spreadsheets.get({ spreadsheetId });
+    let existingSheet = spreadsheetRes.data.sheets.find(s => s.properties.title === sheetTitle);
+    let sheetId = existingSheet ? existingSheet.properties.sheetId : null;
+
+    if (!existingSheet) {
+      const addSheetRes = await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetTitle,
+                gridProperties: { rowCount: 1000, columnCount: 22 }
+              }
+            }
+          }]
+        }
+      });
+      sheetId = addSheetRes.data.replies[0].addSheet.properties.sheetId;
+    } else {
+      // 기존 탭 내용 초기화
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId,
+        range: `'${sheetTitle}'!A:V`,
+      });
+    }
+
+    // 4. 데이터 준비 및 쓰기
+    const headers = [
+      '번호', '등록일', '거래처', '구분', '사이즈', '수량', 
+      '장당판매가', '판매합계', '부가세', '합계금액', 
+      '장당원가', '원가합계', '마진금액', '마진율', 
+      '결제상태', '담당자', '연락처', '계산서일자', 
+      '비고', '공장', '드라이브'
+    ];
+    const rows = [headers];
+    
+    let totalQty = 0, totalSales = 0, totalVat = 0, totalFinal = 0, totalCost = 0, totalMargin = 0;
+    
+    data.forEach(item => {
+      const qty = item.수량 || 0;
+      const sales = item.판매합계 || 0;
+      const vat = item.부가세 || 0;
+      const final = item.합계금액 || 0;
+      const cost = item.원가합계 || 0;
+      const margin = item.마진금액 || 0;
+
+      totalQty += qty;
+      totalSales += sales;
+      totalVat += vat;
+      totalFinal += final;
+      totalCost += cost;
+      totalMargin += margin;
+
+      rows.push([
+        item.번호 || '',
+        item.등록일 || '',
+        item.거래처 || '',
+        item.구분 || '',
+        item.사이즈 || '',
+        qty,
+        item.장당판매가 || 0,
+        sales,
+        vat,
+        final,
+        item.장당원가 || 0,
+        cost,
+        margin,
+        item.마진율 || '',
+        item.결제상태 || '',
+        item.담당자 || '',
+        item.연락처 || '',
+        item.계산서일자 || '',
+        item.비고 || '',
+        item.공장 || '',
+        item.드라이브 || ''
+      ]);
+    });
+
+    // 5. 합계 행 추가
+    const avgMarginRate = totalSales > 0 ? (totalMargin / totalSales * 100).toFixed(1) + '%' : '0%';
+    const avgSalesUnit = totalQty > 0 ? Math.round(totalSales / totalQty) : 0;
+    const avgCostUnit = totalQty > 0 ? Math.round(totalCost / totalQty) : 0;
+
+    rows.push([
+      '합계', '', '', '', '', 
+      totalQty,
+      avgSalesUnit,
+      totalSales,
+      totalVat,
+      totalFinal,
+      avgCostUnit,
+      totalCost,
+      totalMargin,
+      avgMarginRate,
+      '', '', '', '', '', '', ''
+    ]);
+    
+    // 지정된 탭에 데이터 쓰기
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${sheetTitle}'!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: rows }
+    });
+    
+    // 스타일링 (헤더 + 하단 합계)
+    const lastRowIndex = rows.length - 1;
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 21 },
+              cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: 0.8, green: 0.8, blue: 1.0 } } },
+              fields: 'userEnteredFormat(textFormat,backgroundColor)'
+            }
+          },
+          {
+            repeatCell: {
+              range: { sheetId: sheetId, startRowIndex: lastRowIndex, endRowIndex: lastRowIndex + 1, startColumnIndex: 0, endColumnIndex: 21 },
+              cell: { 
+                userEnteredFormat: { 
+                  textFormat: { bold: true, fontSize: 12 }, 
+                  backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 } 
+                } 
+              },
+              fields: 'userEnteredFormat(textFormat,backgroundColor)'
+            }
+          }
+        ]
+      }
+    });
+
+    res.json({ success: true, fileName, sheetTitle });
+  } catch (error) {
+    console.error('오더리스트 내보내기 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 // --- 공장별 정산 PDF 생성 ---
 app.post('/api/reports/settlement/pdf', async (req, res) => {
