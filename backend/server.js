@@ -693,7 +693,7 @@ app.post('/api/reports/settlement', async (req, res) => {
     }
     
     // 3. 데이터 준비 (헤더 포함)
-    const headers = ['생산공장', '고유번호', '업체명', '수량', '공임단가', '출고일', '합산금액', '세금계산서(발행일)'];
+    const headers = ['생산공장', '고유번호', '업체명', '수량', '공임단가', '출고일', '공임합계', '부가세', '합계금액', '세금계산서(발행일)'];
     const rows = [headers];
     
     data.forEach(item => {
@@ -705,6 +705,8 @@ app.post('/api/reports/settlement', async (req, res) => {
         item['공임단가'] || 0,
         item['출고일'] || '',
         item['합산금액'] || 0,
+        item['부가세'] || 0,
+        item['합계금액'] || 0,
         item['세금계산서'] || ''
       ]);
     });
@@ -728,7 +730,7 @@ app.post('/api/reports/settlement', async (req, res) => {
         requests: [
           {
             repeatCell: {
-              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 8 },
+              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 10 },
               cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 } } },
               fields: 'userEnteredFormat(textFormat,backgroundColor)'
             }

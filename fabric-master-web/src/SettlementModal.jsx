@@ -34,6 +34,8 @@ export default function SettlementModal({ items, onClose }) {
       const qty = parseInt(item.qty) || 0;
       const laborUnit = parseFloat(item.laborUnit) || 0;
       const totalCost = qty * laborUnit;
+      const vat = Math.floor(totalCost * 0.1);
+      const grandTotal = totalCost + vat;
 
       grouped[factory].push({
         id: item.id,
@@ -42,6 +44,8 @@ export default function SettlementModal({ items, onClose }) {
         laborUnit: laborUnit,
         shipDate: item.factoryShipDate || item.targetDate || item.date || '',
         totalCost: totalCost,
+        vat: vat,
+        grandTotal: grandTotal,
         productType: item.productType || '에코백',
         status: item.status,
         taxDate: item.tax1 || ''
@@ -85,6 +89,8 @@ export default function SettlementModal({ items, onClose }) {
             공임단가: order.laborUnit,
             출고일: order.shipDate,
             합산금액: order.totalCost,
+            부가세: order.vat,
+            합계금액: order.grandTotal,
             세금계산서: order.taxDate
           });
         });
@@ -180,6 +186,8 @@ export default function SettlementModal({ items, onClose }) {
             Object.entries(displayData).map(([factory, orders]) => {
               const factoryTotalQty = orders.reduce((sum, order) => sum + order.qty, 0);
               const factoryTotalCost = orders.reduce((sum, order) => sum + order.totalCost, 0);
+              const factoryTotalVat = orders.reduce((sum, order) => sum + order.vat, 0);
+              const factoryGrandTotal = factoryTotalCost + factoryTotalVat;
 
               return (
                 <div key={factory} style={{background: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
@@ -187,7 +195,9 @@ export default function SettlementModal({ items, onClose }) {
                     <h3 style={{margin: 0, color: '#1e293b', fontSize: '18px'}}>🏭 {factory}</h3>
                     <div style={{textAlign: 'right'}}>
                       <span style={{fontSize: '13px', color: '#64748b', marginRight: '15px'}}>총 수량: {factoryTotalQty.toLocaleString()}개</span>
-                      <span style={{fontSize: '16px', fontWeight: 800, color: '#f59e0b'}}>합계: ₩ {factoryTotalCost.toLocaleString()}</span>
+                      <span style={{fontSize: '14px', fontWeight: 600, color: '#64748b', marginRight: '15px'}}>공임합계: ₩ {factoryTotalCost.toLocaleString()}</span>
+                      <span style={{fontSize: '14px', fontWeight: 600, color: '#64748b', marginRight: '15px'}}>부가세: ₩ {factoryTotalVat.toLocaleString()}</span>
+                      <span style={{fontSize: '18px', fontWeight: 800, color: '#f59e0b'}}>총 합계: ₩ {factoryGrandTotal.toLocaleString()}</span>
                     </div>
                   </div>
                   
@@ -200,7 +210,9 @@ export default function SettlementModal({ items, onClose }) {
                         <th style={{padding: '10px', textAlign: 'center'}}>세금계산서</th>
                         <th style={{padding: '10px', textAlign: 'right'}}>수량</th>
                         <th style={{padding: '10px', textAlign: 'right'}}>공임단가</th>
-                        <th style={{padding: '10px', textAlign: 'right'}}>합산금액</th>
+                        <th style={{padding: '10px', textAlign: 'right'}}>공임합계</th>
+                        <th style={{padding: '10px', textAlign: 'right'}}>부가세</th>
+                        <th style={{padding: '10px', textAlign: 'right'}}>합계금액</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -212,7 +224,9 @@ export default function SettlementModal({ items, onClose }) {
                           <td style={{padding: '10px', textAlign: 'center', color: order.taxDate ? '#10b981' : '#94a3b8'}}>{order.taxDate || '미발행'}</td>
                           <td style={{padding: '10px', textAlign: 'right'}}>{order.qty.toLocaleString()}</td>
                           <td style={{padding: '10px', textAlign: 'right'}}>₩ {order.laborUnit.toLocaleString()}</td>
-                          <td style={{padding: '10px', textAlign: 'right', fontWeight: 700, color: '#1e293b'}}>₩ {order.totalCost.toLocaleString()}</td>
+                          <td style={{padding: '10px', textAlign: 'right'}}>₩ {order.totalCost.toLocaleString()}</td>
+                          <td style={{padding: '10px', textAlign: 'right'}}>₩ {order.vat.toLocaleString()}</td>
+                          <td style={{padding: '10px', textAlign: 'right', fontWeight: 700, color: '#1e293b'}}>₩ {order.grandTotal.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
