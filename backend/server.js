@@ -651,6 +651,99 @@ app.get('/api/factories', async (req, res) => {
   }
 });
 
+// --- 정산 리포트 내보내기 ---
+app.post('/api/reports/settlement', async (req, res) => {
+  try {
+    const { month, data } = req.body;
+    if (!month || !data || !Array.isArray(data)) {
+      return res.status(400).json({ success: false, error: '잘못된 데이터 형식입니다.' });
+    }
+
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    // 시트 이름: 정산_2024_05
+    const sheetName = `정산_${month.replace('-', '_')}`;
+    
+    // 1. 해당 이름의 시트(탭)가 존재하는지 확인
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: MASTER_SHEET_ID });
+    const existingSheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
+    
+    // 2. 없으면 새로 생성
+    if (!existingSheet) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: MASTER_SHEET_ID,
+        requestBody: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName,
+                gridProperties: { rowCount: 1000, columnCount: 10 }
+              }
+            }
+          }]
+        }
+      });
+    } else {
+      // 이미 존재하면 기존 데이터 지우기 (옵셔널)
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: MASTER_SHEET_ID,
+        range: `'${sheetName}'!A:G`,
+      });
+    }
+    
+    // 3. 데이터 준비 (헤더 포함)
+    const headers = ['생산공장', '고유번호', '업체명', '수량', '공임단가', '출고일', '합산금액', '세금계산서(발행일)'];
+    const rows = [headers];
+    
+    data.forEach(item => {
+      rows.push([
+        item['생산공장'] || '',
+        item['고유번호'] || '',
+        item['업체명'] || '',
+        item['수량'] || 0,
+        item['공임단가'] || 0,
+        item['출고일'] || '',
+        item['합산금액'] || 0,
+        item['세금계산서'] || ''
+      ]);
+    });
+    
+    // 4. 데이터 쓰기
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MASTER_SHEET_ID,
+      range: `'${sheetName}'!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: rows }
+    });
+    
+    // 5. 헤더 스타일링 및 숫자 포맷 지정 (간단히 첫 줄 볼드 처리 요청)
+    const sheetId = existingSheet 
+      ? existingSheet.properties.sheetId 
+      : (await sheets.spreadsheets.get({ spreadsheetId: MASTER_SHEET_ID })).data.sheets.find(s => s.properties.title === sheetName).properties.sheetId;
+      
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: MASTER_SHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 8 },
+              cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 } } },
+              fields: 'userEnteredFormat(textFormat,backgroundColor)'
+            }
+          }
+        ]
+      }
+    });
+
+    res.json({ success: true, sheetName });
+  } catch (error) {
+    console.error('정산 내보내기 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/factories', async (req, res) => {
   try {
     const factoryData = req.body;
