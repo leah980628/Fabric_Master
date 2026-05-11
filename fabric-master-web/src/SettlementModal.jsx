@@ -8,6 +8,43 @@ export default function SettlementModal({ items, onClose }) {
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [selectedFactory, setSelectedFactory] = useState('전체');
   const [isExporting, setIsExporting] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(null); // 'A공장' 식의 문자열 저장
+
+  // PDF 생성 함수
+  const handleGeneratePDF = async (factory, orders) => {
+    try {
+      setGeneratingPDF(factory);
+      const factoryTotalCost = orders.reduce((sum, order) => sum + order.totalCost, 0);
+      const factoryTotalVat = orders.reduce((sum, order) => sum + order.vat, 0);
+      const factoryGrandTotal = factoryTotalCost + factoryTotalVat;
+
+      const apiBase = `http://${window.location.hostname}:3001`;
+      const response = await fetch(`${apiBase}/api/reports/settlement/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month: selectedMonth,
+          factory,
+          orders,
+          totalCost: factoryTotalCost,
+          totalVat: factoryTotalVat,
+          grandTotal: factoryGrandTotal
+        })
+      });
+
+      const result = await response.json();
+      if (result.success && result.pdfLink) {
+        window.open(result.pdfLink, '_blank');
+      } else {
+        alert(`PDF 생성 실패: ${result.error || result.details}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+      setGeneratingPDF(null);
+    }
+  };
 
   // 정산 데이터 집계 로직
   const settlementData = useMemo(() => {
@@ -88,7 +125,7 @@ export default function SettlementModal({ items, onClose }) {
             수량: order.qty,
             공임단가: order.laborUnit,
             출고일: order.shipDate,
-            합산금액: order.totalCost,
+            공임합계: order.totalCost,
             부가세: order.vat,
             합계금액: order.grandTotal,
             세금계산서: order.taxDate
@@ -127,7 +164,9 @@ export default function SettlementModal({ items, onClose }) {
           <h2 style={{margin:0, fontSize:'20px', display:'flex', alignItems:'center', gap:'10px'}}>
             <span>💰</span> 봉재공장 월별 정산 현황
           </h2>
-          <button className="close-btn" onClick={onClose}>&times;</button>
+          <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
+            <button className="close-btn" onClick={onClose} style={{fontSize:'28px'}}>&times;</button>
+          </div>
         </div>
 
         {/* Filters & Actions */}
@@ -180,7 +219,7 @@ export default function SettlementModal({ items, onClose }) {
         <div className="modal-body" style={{flex: 1, padding: '24px', overflowY: 'auto', background: '#f1f5f9'}}>
           {Object.keys(displayData).length === 0 ? (
             <div style={{textAlign: 'center', padding: '40px', color: '#94a3b8'}}>
-              해당 월에 완료되거나 출고 예정인 공장 발주 내역이 없습니다.
+              해당 월에 완료되거나 출고 예정인 공장 발주 내역이 없습니다. (세금계산서 발행 건 기준)
             </div>
           ) : (
             Object.entries(displayData).map(([factory, orders]) => {
@@ -192,7 +231,28 @@ export default function SettlementModal({ items, onClose }) {
               return (
                 <div key={factory} style={{background: 'white', borderRadius: '12px', padding: '20px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px'}}>
-                    <h3 style={{margin: 0, color: '#1e293b', fontSize: '18px'}}>🏭 {factory}</h3>
+                    <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
+                      <h3 style={{margin: 0, color: '#1e293b', fontSize: '18px'}}>🏭 {factory}</h3>
+                      <button 
+                        onClick={() => handleGeneratePDF(factory, orders)}
+                        disabled={generatingPDF === factory}
+                        style={{
+                          padding: '6px 12px', 
+                          background: '#6366f1', 
+                          color: 'white', 
+                          border: 'none', 
+                          borderRadius: '6px', 
+                          fontSize: '12px', 
+                          fontWeight: 600, 
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        {generatingPDF === factory ? '⏳ 생성 중...' : '📄 PDF 정산서 생성'}
+                      </button>
+                    </div>
                     <div style={{textAlign: 'right'}}>
                       <span style={{fontSize: '13px', color: '#64748b', marginRight: '15px'}}>총 수량: {factoryTotalQty.toLocaleString()}개</span>
                       <span style={{fontSize: '14px', fontWeight: 600, color: '#64748b', marginRight: '15px'}}>공임합계: ₩ {factoryTotalCost.toLocaleString()}</span>

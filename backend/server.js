@@ -746,6 +746,161 @@ app.post('/api/reports/settlement', async (req, res) => {
   }
 });
 
+// --- 공장별 정산 PDF 생성 ---
+app.post('/api/reports/settlement/pdf', async (req, res) => {
+  try {
+    const { month, factory, orders, totalCost, totalVat, grandTotal } = req.body;
+    const client = await auth.getClient();
+    const drive = google.drive({ version: 'v3', auth: client });
+    const docs = google.docs({ version: 'v1', auth: client });
+
+    // 1. '공장정산서' 폴더 확인 및 생성
+    let folderId = "";
+    const folderRes = await drive.files.list({
+      q: `name='공장정산서' and mimeType='application/vnd.google-apps.folder' and '${ROOT_DRIVE_FOLDER_ID}' in parents and trashed=false`,
+      fields: 'files(id)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+    
+    if (folderRes.data.files.length > 0) {
+      folderId = folderRes.data.files[0].id;
+    } else {
+      const folderMetadata = {
+        name: '공장정산서',
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [ROOT_DRIVE_FOLDER_ID]
+      };
+      const folder = await drive.files.create({
+        requestBody: folderMetadata,
+        fields: 'id',
+        supportsAllDrives: true
+      });
+      folderId = folder.data.id;
+    }
+
+    // 2. 새 구글 문서 생성
+    const title = `${month}_${factory}_정산확인서`;
+    const docRes = await drive.files.create({
+      requestBody: {
+        name: title,
+        mimeType: 'application/vnd.google-apps.document',
+        parents: [folderId]
+      },
+      supportsAllDrives: true
+    });
+    const docId = docRes.data.id;
+
+    // 3. 문서 내용 작성 (페이지 가로 설정, 제목, 요약 정보, 테이블 생성)
+    const requests = [
+      {
+        updateDocumentStyle: {
+          documentStyle: {
+            pageSize: {
+              width: { magnitude: 841.89, unit: 'PT' }, // A4 Landscape width
+              height: { magnitude: 595.276, unit: 'PT' } // A4 Landscape height
+            }
+          },
+          fields: 'pageSize'
+        }
+      },
+      { insertText: { location: { index: 1 }, text: `${title}\n\n` } },
+      { updateParagraphStyle: { range: { startIndex: 1, endIndex: title.length + 1 }, paragraphStyle: { namedStyleType: 'HEADING_1', alignment: 'CENTER' }, fields: 'namedStyleType,alignment' } },
+      { insertText: { location: { index: title.length + 3 }, text: `정산 월: ${month}\n공장명: ${factory}\n\n총 공임 합계: ₩ ${Number(totalCost).toLocaleString()}\n총 부가세: ₩ ${Number(totalVat).toLocaleString()}\n최종 정산 금액: ₩ ${Number(grandTotal).toLocaleString()}\n\n상세 내역:\n` } },
+      {
+        insertTable: {
+          rows: orders.length + 1,
+          columns: 8,
+          location: { index: title.length + 3 + `정산 월: ${month}\n공장명: ${factory}\n\n총 공임 합계: ₩ ${Number(totalCost).toLocaleString()}\n총 부가세: ₩ ${Number(totalVat).toLocaleString()}\n최종 정산 금액: ₩ ${Number(grandTotal).toLocaleString()}\n\n상세 내역:\n`.length }
+        }
+      }
+    ];
+
+    await docs.documents.batchUpdate({ documentId: docId, requestBody: { requests } });
+
+    // 4. 생성된 테이블의 인덱스를 찾아 데이터 채우기
+    const updatedDoc = await docs.documents.get({ documentId: docId });
+    const content = updatedDoc.data.body.content;
+    const table = content.find(c => c.table);
+    
+    if (table) {
+      const tableRequests = [];
+      const headers = ['고유번호', '업체명', '출고일', '수량', '공임단가', '공임합계', '부가세', '합계금액'];
+      
+      // 헤더 및 데이터 준비
+      const allRows = [headers, ...orders.map(o => [
+        String(o.id),
+        String(o.company),
+        String(o.shipDate || '-'),
+        String(o.qty.toLocaleString()),
+        String(o.laborUnit.toLocaleString()),
+        String(o.totalCost.toLocaleString()),
+        String(o.vat.toLocaleString()),
+        String(o.grandTotal.toLocaleString())
+      ])];
+
+      // Google Docs 테이블 셀 인덱스는 각 셀의 시작 위치입니다. 
+      // batchUpdate를 역순으로 처리하거나(인덱스 변동 방지), 
+      // 각 셀에 텍스트를 삽입할 때 정확한 위치를 찾아야 합니다.
+      // 여기서는 가장 안정적인 방법인 '셀별 인덱스 추출' 후 데이터 삽입을 수행합니다.
+      
+      let tableRows = table.table.tableRows;
+      for (let r = 0; r < allRows.length; r++) {
+        for (let c = 0; c < allRows[r].length; c++) {
+          const cell = tableRows[r].tableCells[c];
+          const text = allRows[r][c];
+          tableRequests.push({
+            insertText: {
+              text: text,
+              location: { index: cell.startIndex + 1 }
+            }
+          });
+        }
+      }
+
+      // 셀 서식 (헤더 볼드처리 등)
+      tableRequests.push({
+        updateTableCellStyle: {
+          tableCellStyle: { backgroundColor: { color: { rgbColor: { red: 0.9, green: 0.9, blue: 0.9 } } } },
+          tableRange: {
+            tableCellLocation: {
+              tableStartLocation: { index: table.startIndex },
+              rowIndex: 0,
+              columnIndex: 0
+            },
+            rowSpan: 1,
+            columnSpan: 8
+          },
+          fields: 'backgroundColor'
+        }
+      });
+
+      // 데이터가 많을 수 있으므로 텍스트 삽입은 역순으로 진행 (인덱스 밀림 방지)
+      // 하지만 각 셀의 startIndex는 고유하므로 순서대로 해도 무방함 (빈 셀에 넣는 것이므로)
+      await docs.documents.batchUpdate({ documentId: docId, requestBody: { requests: tableRequests.reverse() } });
+    }
+    
+    // 5. PDF 변환 및 저장
+    const pdfExport = await drive.files.export({
+      fileId: docId,
+      mimeType: 'application/pdf'
+    }, { responseType: 'stream' });
+
+    const pdfFile = await drive.files.create({
+      requestBody: { name: `${title}.pdf`, parents: [folderId], mimeType: 'application/pdf' },
+      media: { mimeType: 'application/pdf', body: pdfExport.data },
+      fields: 'id, webViewLink',
+      supportsAllDrives: true
+    });
+
+    res.json({ success: true, pdfLink: pdfFile.data.webViewLink });
+
+  } catch (error) {
+    console.error('PDF 생성 에러:', error);
+    res.status(500).json({ error: 'PDF 생성에 실패했습니다.', details: error.message });
+  }
+});
+
 app.post('/api/factories', async (req, res) => {
   try {
     const factoryData = req.body;
