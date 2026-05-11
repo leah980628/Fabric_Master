@@ -68,6 +68,20 @@ function KanbanCard({ item, onDragStart, onCardClick, onCopy, onDelete }) {
           }}>
             {isNew ? '✨ 신규' : '🔄 재상담'}
           </span>
+          {item.orderConfirmed && (
+            <span style={{
+              fontSize:'9px', 
+              fontWeight:'900', 
+              padding:'1px 5px', 
+              borderRadius:'4px',
+              whiteSpace:'nowrap',
+              background: '#fff1f2',
+              color: '#e11d48',
+              border: '1px solid #fb7185'
+            }}>
+              🚩 확정완료
+            </span>
+          )}
         </div>
       </div>
       <div className="card-subtitle">{item.id} | {item.pic}</div>
@@ -201,12 +215,8 @@ function App() {
   const handleDrop = (e, newStatus) => {
     e.preventDefault();
     const itemId = e.dataTransfer.getData('itemId');
-    setItems(items.map(item => {
-      if (item.id === itemId) {
-        return { ...item, status: newStatus };
-      }
-      return item;
-    }));
+    setItems(prev => prev.map(item => item.id === itemId ? { ...item, status: newStatus } : item));
+    setCalculatorItem(prev => (prev && prev.id === itemId) ? { ...prev, status: newStatus } : prev);
     // 시트에 상태 저장 (비동기)
     fetch(`${apiBase}/api/orders/${itemId}/status`, {
       method: 'PATCH',
@@ -216,12 +226,8 @@ function App() {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        return { ...item, status: newStatus };
-      }
-      return item;
-    }));
+    setItems(prev => prev.map(item => item.id === id ? { ...item, status: newStatus } : item));
+    setCalculatorItem(prev => (prev && prev.id === id) ? { ...prev, status: newStatus } : prev);
     // 시트에 상태 저장 (비동기)
     fetch(`${apiBase}/api/orders/${id}/status`, {
       method: 'PATCH',
@@ -320,6 +326,7 @@ function App() {
       status: '상담진행',
       consultMemo: info.memo,
       targetDate: info.date || '',
+      orderConfirmed: info.orderConfirmed || false,
       currentUser
     };
     

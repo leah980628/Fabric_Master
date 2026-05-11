@@ -163,7 +163,8 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     deposit: 0, balance: 0,
     driveLink: '', driveFolderId: '', proofImage: '',
     deliveryAddress: '', workOrderDate: '', prodCheck: '',
-    factoryShipDate: '', trackingNum: ''
+    factoryShipDate: '', trackingNum: '',
+    orderConfirmed: item.orderConfirmed || false
   }, item));
 
   const [proofFiles, setProofFiles] = useState([]);
@@ -957,14 +958,40 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                 </button>
               </div>
 
-              <div className="modal-header-status">
-                <span style={{fontSize:'12px', fontWeight:700, color:'#64748b'}}>진행 단계:</span>
-                <select 
-                  value={item.status} 
-                  onChange={(e) => onStatusChange(item.id, e.target.value)}
-                  style={{padding:'4px 8px', borderRadius:'6px', border:'none', background:'transparent', fontSize:'14px', fontWeight:800, color:'#4f46e5', cursor:'pointer', outline:'none'}}>
-                  {pipelineStages?.map(stage => <option key={stage} value={stage}>{stage}</option>)}
-                </select>
+              <div className="modal-header-status" style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                <div style={{display: 'flex', alignItems: 'center'}}>
+                  <span style={{fontSize:'12px', fontWeight:700, color:'#64748b'}}>진행 단계:</span>
+                  <select 
+                    value={item.status} 
+                    onChange={(e) => onStatusChange(item.id, e.target.value)}
+                    style={{padding:'4px 8px', borderRadius:'6px', border:'none', background:'transparent', fontSize:'14px', fontWeight:800, color:'#4f46e5', cursor:'pointer', outline:'none'}}>
+                    {pipelineStages?.map(stage => <option key={stage} value={stage}>{stage}</option>)}
+                  </select>
+                </div>
+                
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '15px', borderLeft: '1px solid #e2e8f0'}}>
+                  <button 
+                    onClick={() => {
+                      const nextConfirmed = !extraInfo.orderConfirmed;
+                      setExtraInfo(prev => ({...prev, orderConfirmed: nextConfirmed}));
+                      // 상태 자동 전환
+                      if (nextConfirmed) {
+                        onStatusChange(item.id, "오더확정");
+                      } else {
+                        onStatusChange(item.id, "견적안내");
+                      }
+                    }}
+                    style={{
+                      padding: '5px 12px', borderRadius: '20px', border: 'none',
+                      background: extraInfo.orderConfirmed ? '#f43f5e' : '#f1f5f9',
+                      color: extraInfo.orderConfirmed ? 'white' : '#64748b',
+                      fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
+                      display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px',
+                      boxShadow: extraInfo.orderConfirmed ? '0 2px 4px rgba(244, 63, 94, 0.2)' : 'none'
+                    }}>
+                    {extraInfo.orderConfirmed ? '✅ 오더확정 ON' : '⚪ 오더확정 OFF'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -111,7 +111,7 @@ const mapFrontendToSheet = (data) => {
       hasPrint2: data.hasPrint2, hasFreight2: data.hasFreight2
     },
     margin: { percent: data.percent, customDeliveryUnit: data.customDeliveryUnit },
-    customerInfo: { contact2: data.contact2, consultType: data.consultType },
+    customerInfo: { contact2: data.contact2, consultType: data.consultType, orderConfirmed: data.orderConfirmed },
     extraInfo: { driveFolderId: data.driveFolderId, paymentPic: data.paymentPic,
       paymentContact: data.paymentContact, paymentContact2: data.paymentContact2, paymentEmail: data.paymentEmail },
     comments: data.comments || '[]'
@@ -147,6 +147,7 @@ const mapFrontendToSheet = (data) => {
     '마진가격': data.marginAmountUnit || 0,
     '마진%': data.percent || 0,
     '마진합계': (data.finalDeliveryAll || 0) - (data.totalCostAll || 0),
+    '오더확정': data.orderConfirmed ? '확정' : '',
     '원단01업체': data.fabricSupplier || '미정',
     '원단01내용': data.fabricContent || data.fabricName || '',
     '원단01가격': data.fabricPrice || 0,
@@ -326,6 +327,7 @@ const mapSheetToFrontend = (rowData) => {
     ...(detailData.marginInfo || {}),
     ...(detailData.customerInfo || {}),
     ...(detailData.extraInfo || {}),
+    orderConfirmed: rowData['오더확정'] === '확정' || !!detailData.customerInfo?.orderConfirmed,
     fabricName: detailData.fabricName || '메인 원단',
     fabricContent: detailData.fabricContent || [
       rowData['원단01내용'] ? `[원단01] ${rowData['원단01내용']}` : '',
@@ -460,11 +462,31 @@ app.post('/api/orders', async (req, res) => {
     const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
     // 1. 제작내용 시트에 추가
-    const sheetData = mapFrontendToSheet({ ...orderData, _registeredDate: dateStr, _registeredBy: orderData.currentUser });
     const headerRes = await sheets.spreadsheets.values.get({
       spreadsheetId: MASTER_SHEET_ID, range: '제작내용!1:1',
     });
     const headers = headerRes.data.values[0];
+
+    // 필수 컬럼 확인 및 추가
+    const requiredCols = ['오더확정', '상세계산데이터'];
+    let headerUpdated = false;
+    requiredCols.forEach(col => {
+      if (!headers.includes(col)) {
+        headers.push(col);
+        headerUpdated = true;
+      }
+    });
+
+    if (headerUpdated) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: MASTER_SHEET_ID,
+        range: '제작내용!1:1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [headers] },
+      });
+    }
+
+    const sheetData = mapFrontendToSheet({ ...orderData, _registeredDate: dateStr, _registeredBy: orderData.currentUser });
     const newRow = headers.map(h => sheetData[h] !== undefined ? sheetData[h] : '');
 
     await sheets.spreadsheets.values.append({
@@ -538,12 +560,17 @@ app.put('/api/orders/:id', async (req, res) => {
     orderData._registeredDate = existingRow[regDateIdx] || '';
     orderData._registeredBy = existingRow[regByIdx] || '';
 
-    // 4. 상세계산데이터 컬럼 자동 추가 (기존 데이터 잠금 해제 저장용)
-    let detailColIndex = headers.indexOf('상세계산데이터');
-    if (detailColIndex === -1) {
-      headers.push('상세계산데이터');
-      detailColIndex = headers.length - 1;
-      // 시트의 첫 번째 줄(헤더) 업데이트
+    // 4. 상세계산데이터 및 오더확정 컬럼 자동 추가
+    const requiredCols = ['오더확정', '상세계산데이터'];
+    let headerUpdated = false;
+    requiredCols.forEach(col => {
+      if (!headers.includes(col)) {
+        headers.push(col);
+        headerUpdated = true;
+      }
+    });
+
+    if (headerUpdated) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: MASTER_SHEET_ID,
         range: '제작내용!1:1',
