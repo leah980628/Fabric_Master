@@ -32,21 +32,34 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   };
 
   // 1. 기본 사양
-  const [specs, setSpecs] = useState(() => initFromItem({
-    type: "1번 기본형(가로*세로)",
-    fabricSupplier: "미정",
-    fabricName: "메인 원단",
-    fabricContent: "",
-    w: 0, h: 0, d: 0, sideD: 0,
-    qty: 100, fabricWidth: 63, fabricPrice: 0,
-    topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3,
-    useSeparateBodyFabric: false,
-    bodyParts: {
-      partA: { supplier: "미정", name: "", width: 63, price: 0 }, // 앞면 또는 메인
-      partB: { supplier: "미정", name: "", width: 63, price: 0 }, // 뒷면 또는 옆/밑면
-      partC: { supplier: "미정", name: "", width: 63, price: 0 }  // 기타 부위
+  const [specs, setSpecs] = useState(() => {
+    const defaultSpecs = initFromItem({
+      type: "1번 기본형(가로*세로)",
+      fabricSupplier: "미정",
+      fabricName: "메인 원단",
+      fabricContent: "",
+      w: 0, h: 0, d: 0, sideD: 0,
+      qty: 100, fabricWidth: 63, fabricPrice: 0,
+      topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3,
+      useSeparateBodyFabric: false,
+      bodyParts: {
+        partA: { supplier: "미정", name: "", width: 63, price: 0 }, // 앞면 또는 메인
+        partB: { supplier: "미정", name: "", width: 63, price: 0 }, // 뒷면 또는 옆/밑면
+        partC: { supplier: "미정", name: "", width: 63, price: 0 }  // 기타 부위
+      }
+    }, item);
+
+    // 가방사양의 원단 데이터가 존재하고, 사양계산의 메인 원단이 비어있거나 초기값인 경우 덮어쓰기
+    if (item?.fabric && (!defaultSpecs.fabricName || defaultSpecs.fabricName === "메인 원단")) {
+      defaultSpecs.fabricName = item.fabric;
+      // 부위별 원단 이름도 동기화 (비어있거나 메인 원단인 경우)
+      if (!defaultSpecs.bodyParts.partA.name || defaultSpecs.bodyParts.partA.name === "메인 원단") defaultSpecs.bodyParts.partA.name = item.fabric;
+      if (!defaultSpecs.bodyParts.partB.name || defaultSpecs.bodyParts.partB.name === "메인 원단") defaultSpecs.bodyParts.partB.name = item.fabric;
+      if (!defaultSpecs.bodyParts.partC.name || defaultSpecs.bodyParts.partC.name === "메인 원단") defaultSpecs.bodyParts.partC.name = item.fabric;
     }
-  }, item));
+
+    return defaultSpecs;
+  });
 
   const [fabricSuppliers, setFabricSuppliers] = useState(fabricSupplierListDefault);
   const [factories, setFactories] = useState(factoryListDefault);
@@ -110,25 +123,37 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   };
 
   // 2. 부자재, 인쇄 및 공임
-  const [costs, setCosts] = useState(() => initFromItem({
-    factory: "미정",
-    laborUnit: 0, laborContent: "",
-    webbingSupplier: "미정", webbingUnit: 0, webbingContent: "",
-    webbingFinishLen: 60, webbingSeam: 6, webbingPrice: 0,
-    webbingRollLen: 100, webbingLoss: 3, webbingQtyPerBag: 2,
-    hasOuterBias: false, outerBiasSupplier: "미정", outerBiasUnit: 0, outerBiasContent: "",
-    outerBiasFinishLen: 80, outerBiasSeam: 3, outerBiasPrice: 0,
-    outerBiasRollLen: 100, outerBiasLoss: 3, outerBiasQtyPerBag: 1,
-    hasInnerBias: false, innerBiasSupplier: "미정", innerBiasUnit: 0, innerBiasContent: "",
-    innerBiasFinishLen: 80, innerBiasSeam: 3, innerBiasPrice: 0,
-    innerBiasRollLen: 100, innerBiasLoss: 3, innerBiasQtyPerBag: 1,
-    metalSupplier: "미정", metalUnit: 0, metalContent: "", hasMetal: false,
-    metalSupplier2: "미정", metalUnit2: 0, metalContent2: "", hasMetal2: false,
-    printSupplier: "미정", printUnit: 0, printContent: "",
-    hasPrint2: false, printSupplier2: "미정", printUnit2: 0, printContent2: "",
-    freightSupplier: "미정", freightTotal: 0, freightContent: "",
-    hasFreight2: false, freightSupplier2: "미정", freightTotal2: 0, freightContent2: "",
-  }, item));
+  const [costs, setCosts] = useState(() => {
+    const defaultCosts = initFromItem({
+      factory: "미정",
+      laborUnit: 0, laborContent: "",
+      webbingSupplier: "미정", webbingUnit: 0, webbingContent: "",
+      webbingFinishLen: 60, webbingSeam: 6, webbingPrice: 0,
+      webbingRollLen: 100, webbingLoss: 3, webbingQtyPerBag: 2,
+      hasOuterBias: false, outerBiasSupplier: "미정", outerBiasUnit: 0, outerBiasContent: "",
+      outerBiasFinishLen: 80, outerBiasSeam: 3, outerBiasPrice: 0,
+      outerBiasRollLen: 100, outerBiasLoss: 3, outerBiasQtyPerBag: 1,
+      hasInnerBias: false, innerBiasSupplier: "미정", innerBiasUnit: 0, innerBiasContent: "",
+      innerBiasFinishLen: 80, innerBiasSeam: 3, innerBiasPrice: 0,
+      innerBiasRollLen: 100, innerBiasLoss: 3, innerBiasQtyPerBag: 1,
+      metalSupplier: "미정", metalUnit: 0, metalContent: "", hasMetal: false,
+      metalSupplier2: "미정", metalUnit2: 0, metalContent2: "", hasMetal2: false,
+      printSupplier: "미정", printUnit: 0, printContent: "",
+      hasPrint2: false, printSupplier2: "미정", printUnit2: 0, printContent2: "",
+      freightSupplier: "미정", freightTotal: 0, freightContent: "",
+      hasFreight2: false, freightSupplier2: "미정", freightTotal2: 0, freightContent2: "",
+    }, item);
+
+    // 가방사양의 웨빙/인쇄 데이터가 존재하고, 사양계산의 내용이 비어있는 경우 덮어쓰기
+    if (item?.webbing && !defaultCosts.webbingContent) {
+      defaultCosts.webbingContent = item.webbing;
+    }
+    if (item?.printing && !defaultCosts.printContent) {
+      defaultCosts.printContent = item.printing;
+    }
+
+    return defaultCosts;
+  });
 
   // 3. 결제 및 추가 정보 (새로 추가된 필드들)
   const [extraInfo, setExtraInfo] = useState(() => initFromItem({
@@ -213,6 +238,24 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   const handleBagSpecsChange = (e) => {
     const { name, value } = e.target;
     setBagSpecs(prev => ({ ...prev, [name]: value }));
+
+    // 가방사양 -> 사양계산 자동 연동
+    if (name === 'fabric') {
+      setSpecs(prev => ({ 
+        ...prev, 
+        fabricName: value,
+        // 메인 원단명이 바뀌면 부위별 원단명도 동기화
+        bodyParts: {
+          partA: { ...prev.bodyParts.partA, name: prev.bodyParts.partA.name === '' || prev.bodyParts.partA.name === prev.fabricName ? value : prev.bodyParts.partA.name },
+          partB: { ...prev.bodyParts.partB, name: prev.bodyParts.partB.name === '' || prev.bodyParts.partB.name === prev.fabricName ? value : prev.bodyParts.partB.name },
+          partC: { ...prev.bodyParts.partC, name: prev.bodyParts.partC.name === '' || prev.bodyParts.partC.name === prev.fabricName ? value : prev.bodyParts.partC.name },
+        }
+      }));
+    } else if (name === 'webbing') {
+      setCosts(prev => ({ ...prev, webbingContent: value }));
+    } else if (name === 'printing') {
+      setCosts(prev => ({ ...prev, printContent: value }));
+    }
   };
 
   // 4. 마진뷰
