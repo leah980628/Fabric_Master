@@ -784,7 +784,7 @@ app.post('/api/reports/settlement', async (req, res) => {
 // --- 통합 오더리스트 내보내기 (계산서 발행 기준) ---
 app.post('/api/reports/order-list', async (req, res) => {
   try {
-    const { month, data } = req.body;
+    const { month, data, type } = req.body;
     if (!month || !data || !Array.isArray(data)) {
       return res.status(400).json({ success: false, error: '잘못된 데이터 형식입니다.' });
     }
@@ -795,7 +795,7 @@ app.post('/api/reports/order-list', async (req, res) => {
     
     const [year, monthNum] = month.split('-');
     const fileName = `${year}년_오더리스트`;
-    const sheetTitle = `${year.slice(2)}년${parseInt(monthNum)}월`;
+    const sheetTitle = `${year.slice(2)}년${parseInt(monthNum)}월${type === '오더확정' ? '_확정' : ''}`;
     const folderName = '오더리스트';
 
     // 1. '오더리스트' 폴더 찾기 또는 생성
