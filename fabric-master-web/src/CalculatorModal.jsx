@@ -4,6 +4,7 @@ const bagTypes = [
   "1번 기본형(가로*세로)", 
   "1-1번 분리형(가로*세로)", 
   "2번 기본형(가로*세로*밑면)", 
+  "2-1번 분리형(가로*세로*밑면)",
   "3번 옆면형(가로*세로*밑면*옆면)", 
   "3-1번 U자형(앞뒤분리)"
 ];
@@ -307,7 +308,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
       // 사이즈 입력에 따른 가방 형태 자동 추천 연결 로직
       if (name === 'd' && numVal > 0 && prev.type === "1번 기본형(가로*세로)") {
         newType = "2번 기본형(가로*세로*밑면)";
-      } else if (name === 'sideD' && numVal > 0 && (prev.type === "1번 기본형(가로*세로)" || prev.type === "2번 기본형(가로*세로*밑면)")) {
+      } else if (name === 'sideD' && numVal > 0 && (prev.type === "1번 기본형(가로*세로)" || prev.type === "2번 기본형(가로*세로*밑면)" || prev.type === "2-1번 분리형(가로*세로*밑면)")) {
         newType = "3번 옆면형(가로*세로*밑면*옆면)";
       } else if (name === 'type') {
         newType = value;
@@ -646,6 +647,19 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
           const yard = calculatePartYard(pw, ph, null, fabric);
           addToGroup(fabric.supplier, fabric.name, yard, fabric.width, fabric.price);
           bodyNetYard = yard;
+      } else if (s.type === "2-1번 분리형(가로*세로*밑면)") {
+          const pw = s.w + (s.sideSeam * 2);
+          const ph = s.h + (s.d / 2) + s.topSeam + s.bottomSeam;
+          
+          const f1 = getBodyFabric('partA');
+          const yard1 = calculatePartYard(pw, ph, null, f1);
+          addToGroup(f1.supplier, f1.name, yard1, f1.width, f1.price);
+          
+          const f2 = getBodyFabric('partB');
+          const yard2 = calculatePartYard(pw, ph, null, f2);
+          addToGroup(f2.supplier, f2.name, yard2, f2.width, f2.price);
+          
+          bodyNetYard = yard1 + yard2;
       } else if (s.type === "3번 옆면형(가로*세로*밑면*옆면)") {
           const f1 = getBodyFabric('partA');
           const pw1 = s.w + (s.sideSeam * 2);
@@ -862,7 +876,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     onSave(data);
   };
 
-  const showD = ["2번 기본형(가로*세로*밑면)", "3번 옆면형(가로*세로*밑면*옆면)"].includes(specs.type);
+  const showD = ["2번 기본형(가로*세로*밑면)", "2-1번 분리형(가로*세로*밑면)", "3번 옆면형(가로*세로*밑면*옆면)"].includes(specs.type);
   const showSideD = ["3번 옆면형(가로*세로*밑면*옆면)", "3-1번 U자형(앞뒤분리)"].includes(specs.type);
 
   return (
