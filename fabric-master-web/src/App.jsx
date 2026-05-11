@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import ConsultationModal from './ConsultationModal';
 import CalculatorModal from './CalculatorModal';
 import FactoryManagementModal from './FactoryManagementModal';
+import SettlementModal from './SettlementModal';
 import ActivityLogPanel from './ActivityLogPanel';
 import UserSelectModal, { getCurrentUser, setCurrentUser } from './UserSelectModal';
 import './index.css';
@@ -152,6 +153,7 @@ function App() {
   const [items, setItems] = useState(dummyData);
   const [isConsultOpen, setIsConsultOpen] = useState(false);
   const [isFactoryManageOpen, setIsFactoryManageOpen] = useState(false);
+  const [isSettlementOpen, setIsSettlementOpen] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [calculatorItem, setCalculatorItem] = useState(null);
   const [currentUser, setCurrentUserState] = useState(getCurrentUser());
@@ -455,6 +457,11 @@ function App() {
             ⚙️ 공장 관리
           </button>
           <button 
+            onClick={() => setIsSettlementOpen(true)}
+            style={{padding: '10px 20px', background: 'white', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
+            💰 공장 정산
+          </button>
+          <button 
             onClick={() => setIsConsultOpen(true)}
             style={{padding: '10px 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-sm)'}}>
             + 새 주문 등록 (상담)
@@ -525,6 +532,10 @@ function App() {
         <FactoryManagementModal 
           onClose={() => setIsFactoryManageOpen(false)} 
         />
+      )}
+
+      {isSettlementOpen && (
+        <SettlementModal items={items} onClose={() => setIsSettlementOpen(false)} />
       )}
 
       {calculatorItem && (
