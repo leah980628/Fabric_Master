@@ -12,7 +12,8 @@ export default function OrderListModal({ items, onClose }) {
   // 월별 데이터 필터링
   const filteredData = useMemo(() => {
     const baseData = items.filter(item => {
-      const dateString = item.date || item._registeredDate || '';
+      // 오더확정 탭일 때는 확정일자 기준, 아니면 등록일 기준
+      const dateString = (activeTab === '오더확정' ? item.orderConfirmedDate : (item.date || item._registeredDate)) || '';
       return dateString.startsWith(selectedMonth);
     });
 
@@ -91,6 +92,7 @@ export default function OrderListModal({ items, onClose }) {
           담당자: item.pic || '',
           연락처: item.contact || '',
           계산서일자: item.tax1 || item.tax2 || '',
+          확정일자: item.orderConfirmedDate || '',
           비고: item.consultMemo || '',
           공장: item.factory || '',
           드라이브: item.driveLink || ''
@@ -222,7 +224,9 @@ export default function OrderListModal({ items, onClose }) {
                 <th style={{padding: '12px 10px', textAlign: 'right', width: '110px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap'}}>원가합계</th>
                 <th style={{padding: '12px 10px', textAlign: 'right', width: '110px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap'}}>마진액</th>
                 <th style={{padding: '12px 10px', textAlign: 'center', width: '80px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap'}}>마진율</th>
-                <th style={{padding: '12px 10px', textAlign: 'center', width: '100px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap'}}>계산서일자</th>
+                <th style={{padding: '12px 10px', textAlign: 'center', width: '100px', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap'}}>
+                  {activeTab === '오더확정' ? '확정일자' : '계산서일자'}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -265,7 +269,9 @@ export default function OrderListModal({ items, onClose }) {
                           padding: '2px 6px', borderRadius: '4px', background: '#f0fdf4', color: '#16a34a', fontWeight: 700
                         }}>{sales > 0 ? (margin / sales * 100).toFixed(1) + '%' : '0%'}</span>
                       </td>
-                      <td style={{padding: '12px 10px', textAlign: 'center', color: '#64748b'}}>{item.tax1 || item.tax2 || '-'}</td>
+                      <td style={{padding: '12px 10px', textAlign: 'center', color: '#64748b'}}>
+                        {activeTab === '오더확정' ? (item.orderConfirmedDate || '-') : (item.tax1 || item.tax2 || '-')}
+                      </td>
                     </tr>
                   );
                 })

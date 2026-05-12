@@ -111,7 +111,12 @@ const mapFrontendToSheet = (data) => {
       hasPrint2: data.hasPrint2, hasFreight2: data.hasFreight2
     },
     margin: { percent: data.percent, customDeliveryUnit: data.customDeliveryUnit },
-    customerInfo: { contact2: data.contact2, consultType: data.consultType, orderConfirmed: data.orderConfirmed },
+    customerInfo: { 
+      contact2: data.contact2, 
+      consultType: data.consultType, 
+      orderConfirmed: data.orderConfirmed,
+      orderConfirmedDate: data.orderConfirmedDate
+    },
     extraInfo: { driveFolderId: data.driveFolderId, paymentPic: data.paymentPic,
       paymentContact: data.paymentContact, paymentContact2: data.paymentContact2, paymentEmail: data.paymentEmail },
     comments: data.comments || '[]'
@@ -148,6 +153,7 @@ const mapFrontendToSheet = (data) => {
     '마진%': data.percent || 0,
     '마진합계': (data.finalDeliveryAll || 0) - (data.totalCostAll || 0),
     '오더확정': data.orderConfirmed ? '확정' : '',
+    '오더확정일자': data.orderConfirmedDate || '',
     '원단01업체': data.fabricSupplier || '미정',
     '원단01내용': data.fabricContent || data.fabricName || '',
     '원단01가격': data.fabricPrice || 0,
@@ -328,6 +334,7 @@ const mapSheetToFrontend = (rowData) => {
     ...(detailData.customerInfo || {}),
     ...(detailData.extraInfo || {}),
     orderConfirmed: rowData['오더확정'] === '확정' || !!detailData.customerInfo?.orderConfirmed,
+    orderConfirmedDate: rowData['오더확정일자'] || detailData.customerInfo?.orderConfirmedDate || '',
     fabricName: detailData.fabricName || '메인 원단',
     fabricContent: detailData.fabricContent || [
       rowData['원단01내용'] ? `[원단01] ${rowData['원단01내용']}` : '',
@@ -561,7 +568,7 @@ app.put('/api/orders/:id', async (req, res) => {
     orderData._registeredBy = existingRow[regByIdx] || '';
 
     // 4. 상세계산데이터 및 오더확정 컬럼 자동 추가
-    const requiredCols = ['오더확정', '상세계산데이터'];
+    const requiredCols = ['오더확정', '오더확정일자', '상세계산데이터'];
     let headerUpdated = false;
     requiredCols.forEach(col => {
       if (!headers.includes(col)) {

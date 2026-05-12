@@ -973,7 +973,15 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   <button 
                     onClick={() => {
                       const nextConfirmed = !extraInfo.orderConfirmed;
-                      setExtraInfo(prev => ({...prev, orderConfirmed: nextConfirmed}));
+                      const now = new Date();
+                      const dateStr = nextConfirmed ? `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}` : '';
+                      
+                      setExtraInfo(prev => ({
+                        ...prev, 
+                        orderConfirmed: nextConfirmed,
+                        orderConfirmedDate: dateStr
+                      }));
+                      
                       // 상태 자동 전환
                       if (nextConfirmed) {
                         onStatusChange(item.id, "오더확정");
