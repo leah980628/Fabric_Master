@@ -12,8 +12,8 @@ export default function OrderListModal({ items, onClose }) {
   // 월별 데이터 필터링
   const filteredData = useMemo(() => {
     const baseData = items.filter(item => {
-      // 오더확정 탭일 때는 확정일자 기준, 아니면 등록일 기준
-      const dateString = (activeTab === '오더확정' ? item.orderConfirmedDate : (item.date || item._registeredDate)) || '';
+      // 오더확정 탭일 때는 확정일자 기준(없으면 등록일), 아니면 등록일 기준
+      const dateString = (activeTab === '오더확정' ? (item.orderConfirmedDate || item.date || item._registeredDate) : (item.date || item._registeredDate)) || '';
       return dateString.startsWith(selectedMonth);
     });
 
@@ -78,6 +78,7 @@ export default function OrderListModal({ items, onClose }) {
           등록일: item.date || item._registeredDate || '',
           거래처: item.company || '',
           구분: item.consultType || '신규',
+          가방사양: `원단: ${item.fabric || '-'}\n사이즈: ${item.w || 0}*${item.h || 0}*${item.d || 0}\n웨빙: ${item.webbing || '-'}\n인쇄: ${item.printing || '-'}\n옵션: ${item.options || '-'}`,
           사이즈: `${item.w || 0}*${item.h || 0}*${item.d || 0}`,
           수량: item.qty || 0,
           장당판매가: salesUnit,

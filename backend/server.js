@@ -144,14 +144,14 @@ const mapFrontendToSheet = (data) => {
     '생산공장': data.factory || '미정',
     '공임': data.laborContent || '',
     '공임가격': data.laborUnit || 0,
-    '생산합계': data.totalCostAll || 0,
-    '납품가': data.finalDeliveryUnit || 0,
-    '납품가합계': data.finalDeliveryAll || 0,
-    '부가세': Math.round((data.finalDeliveryAll || 0) * 0.1),
-    '납품가합계+부가세': data.finalDeliveryAllVAT || 0,
-    '마진가격': data.marginAmountUnit || 0,
+    '생산합계': data.marginInfo?.totalCostUnit || data.totalCostAll || 0,
+    '납품가': data.marginInfo?.finalDeliveryUnit || data.finalDeliveryUnit || 0,
+    '납품가합계': data.marginInfo?.finalDeliveryAll || data.finalDeliveryAll || 0,
+    '부가세': data.marginInfo?.finalDeliveryAllVAT ? Math.round(data.marginInfo.finalDeliveryAllVAT - data.marginInfo.finalDeliveryAll) : Math.round((data.finalDeliveryAll || 0) * 0.1),
+    '납품가합계+부가세': data.marginInfo?.finalDeliveryAllVAT || data.finalDeliveryAllVAT || 0,
+    '마진가격': data.marginInfo?.marginAmountUnit || data.marginAmountUnit || 0,
     '마진%': data.percent || 0,
-    '마진합계': (data.finalDeliveryAll || 0) - (data.totalCostAll || 0),
+    '마진합계': data.marginInfo?.marginAmountUnit ? Math.round(data.marginInfo.marginAmountUnit * (data.qty || 0)) : ((data.finalDeliveryAll || 0) - ((data.totalCostAll || 0) * (data.qty || 0))),
     '오더확정': data.orderConfirmed ? '확정' : '',
     '오더확정일자': data.orderConfirmedDate || '',
     '원단01업체': data.fabricSupplier || '미정',
@@ -179,14 +179,6 @@ const mapFrontendToSheet = (data) => {
     '인쇄종류01': '', '인쇄내용01': data.printContent || '', '인쇄가격01': data.printUnit || 0,
     '인쇄공장02': data.printSupplier2 || '',
     '인쇄종류02': '', '인쇄내용02': data.printContent2 || '', '인쇄가격02': data.printUnit2 || 0,
-    '생산합계': data.marginInfo?.totalCostUnit || 0,
-    '납품가': data.marginInfo?.finalDeliveryUnit || 0,
-    '납품가합계': data.marginInfo?.finalDeliveryAll || 0,
-    '부가세': data.marginInfo?.finalDeliveryAllVAT ? Math.round(data.marginInfo.finalDeliveryAllVAT - data.marginInfo.finalDeliveryAll) : 0,
-    '납품가합계+부가세': data.marginInfo?.finalDeliveryAllVAT || 0,
-    '마진가격': data.marginInfo?.marginAmountUnit || 0,
-    '마진%': data.percent || 30,
-    '마진합계': data.marginInfo?.marginAmountUnit ? Math.round(data.marginInfo.marginAmountUnit * (data.qty || 0)) : 0,
     '추가견적안내': '',
     '결재벙법': data.paymentMethod || '계좌이체',
     '세금계산서발행1': data.tax1 || '',
@@ -868,7 +860,7 @@ app.post('/api/reports/order-list', async (req, res) => {
             addSheet: {
               properties: {
                 title: sheetTitle,
-                gridProperties: { rowCount: 1000, columnCount: 22 }
+                gridProperties: { rowCount: 1000, columnCount: 23 }
               }
             }
           }]
@@ -879,13 +871,13 @@ app.post('/api/reports/order-list', async (req, res) => {
       // 기존 탭 내용 초기화
       await sheets.spreadsheets.values.clear({
         spreadsheetId,
-        range: `'${sheetTitle}'!A:V`,
+        range: `'${sheetTitle}'!A:W`,
       });
     }
 
     // 4. 데이터 준비 및 쓰기
     const headers = [
-      '번호', '등록일', '거래처', '구분', '사이즈', '수량', 
+      '번호', '등록일', '거래처', '구분', '가방사양', '사이즈', '수량', 
       '장당판매가', '판매합계', '부가세', '합계금액', 
       '장당원가', '원가합계', '마진금액', '마진율', 
       '결제상태', '담당자', '연락처', '계산서일자', 
@@ -915,6 +907,7 @@ app.post('/api/reports/order-list', async (req, res) => {
         item.등록일 || '',
         item.거래처 || '',
         item.구분 || '',
+        item.가방사양 || '',
         item.사이즈 || '',
         qty,
         item.장당판매가 || 0,
@@ -941,7 +934,7 @@ app.post('/api/reports/order-list', async (req, res) => {
     const avgCostUnit = totalQty > 0 ? Math.round(totalCost / totalQty) : 0;
 
     rows.push([
-      '합계', '', '', '', '', 
+      '합계', '', '', '', '', '', 
       totalQty,
       avgSalesUnit,
       totalSales,
@@ -962,22 +955,152 @@ app.post('/api/reports/order-list', async (req, res) => {
       requestBody: { values: rows }
     });
     
-    // 스타일링 (헤더 + 하단 합계)
+    // 스타일링 (헤더 + 하단 합계 + 정렬)
     const lastRowIndex = rows.length - 1;
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
         requests: [
           {
+            // 컬럼 너비 수동 지정 (가독성 확보)
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
+              properties: { pixelSize: 50 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
+              properties: { pixelSize: 100 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 },
+              properties: { pixelSize: 180 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 },
+              properties: { pixelSize: 80 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, // 가방사양
+              properties: { pixelSize: 450 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 },
+              properties: { pixelSize: 120 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 14 }, // 숫자 컬럼들
+              properties: { pixelSize: 100 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 14, endIndex: 19 },
+              properties: { pixelSize: 100 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 19, endIndex: 20 }, // 비고
+              properties: { pixelSize: 300 }, fields: 'pixelSize'
+            }
+          },
+          {
+            updateDimensionProperties: {
+              range: { sheetId: sheetId, dimension: 'COLUMNS', startIndex: 20, endIndex: 22 },
+              properties: { pixelSize: 120 }, fields: 'pixelSize'
+            }
+          },
+          {
+            // 로우 높이 자동 조절
+            autoResizeDimensions: {
+              dimensions: {
+                sheetId: sheetId,
+                dimension: 'ROWS',
+                startIndex: 0,
+                endIndex: lastRowIndex + 1
+              }
+            }
+          },
+          {
+            // 숫자 천단위 콤마 형식 적용 (수량 ~ 마진금액 범위)
             repeatCell: {
-              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 21 },
+              range: { 
+                sheetId: sheetId, 
+                startRowIndex: 1, 
+                endRowIndex: lastRowIndex + 1, 
+                startColumnIndex: 6, 
+                endColumnIndex: 14 
+              },
+              cell: {
+                userEnteredFormat: {
+                  numberFormat: { type: 'NUMBER', pattern: '#,##0' }
+                }
+              },
+              fields: 'userEnteredFormat.numberFormat'
+            }
+          },
+          {
+            // 전체 범위 중앙 정렬 (가로/세로)
+            repeatCell: {
+              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: lastRowIndex + 1, startColumnIndex: 0, endColumnIndex: 22 },
+              cell: { 
+                userEnteredFormat: { 
+                  verticalAlignment: 'MIDDLE',
+                  horizontalAlignment: 'CENTER'
+                } 
+              },
+              fields: 'userEnteredFormat(verticalAlignment,horizontalAlignment)'
+            }
+          },
+          {
+            // 가방사양(4) 및 비고(19) 좌측 정렬 (데이터 영역만)
+            repeatCell: {
+              range: { 
+                sheetId: sheetId, 
+                startRowIndex: 1, 
+                endRowIndex: lastRowIndex, 
+                startColumnIndex: 4, 
+                endColumnIndex: 5 
+              },
+              cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } },
+              fields: 'userEnteredFormat.horizontalAlignment'
+            }
+          },
+          {
+            repeatCell: {
+              range: { 
+                sheetId: sheetId, 
+                startRowIndex: 1, 
+                endRowIndex: lastRowIndex, 
+                startColumnIndex: 19, 
+                endColumnIndex: 20 
+              },
+              cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } },
+              fields: 'userEnteredFormat.horizontalAlignment'
+            }
+          },
+          {
+            repeatCell: {
+              range: { sheetId: sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 22 },
               cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: 0.8, green: 0.8, blue: 1.0 } } },
               fields: 'userEnteredFormat(textFormat,backgroundColor)'
             }
           },
           {
             repeatCell: {
-              range: { sheetId: sheetId, startRowIndex: lastRowIndex, endRowIndex: lastRowIndex + 1, startColumnIndex: 0, endColumnIndex: 21 },
+              range: { sheetId: sheetId, startRowIndex: lastRowIndex, endRowIndex: lastRowIndex + 1, startColumnIndex: 0, endColumnIndex: 22 },
               cell: { 
                 userEnteredFormat: { 
                   textFormat: { bold: true, fontSize: 12 }, 
