@@ -94,7 +94,7 @@ const mapFrontendToSheet = (data) => {
     specs: { type: data.type, w: data.w, h: data.h, d: data.d, sideD: data.sideD, 
              fabricWidth: data.fabricWidth, topSeam: data.topSeam, bottomSeam: data.bottomSeam,
              sideSeam: data.sideSeam, loss: data.loss, useSeparateBodyFabric: data.useSeparateBodyFabric,
-             bodyParts: data.bodyParts, fabricName: data.fabricName },
+             bodyParts: data.bodyParts, fabricName: data.fabricName, fabricContent: data.fabricContent },
     extras: data.hasStrap !== undefined ? {
       hasStrap: data.hasStrap, strapW: data.strapW, strapL: data.strapL, strapQty: data.strapQty,
       strapTopSeam: data.strapTopSeam, strapBottomSeam: data.strapBottomSeam, strapSideSeam: data.strapSideSeam,
@@ -259,7 +259,15 @@ const mapSheetToFrontend = (rowData) => {
     contact: rowData['연락처'] || '',
     email: rowData['이메일'] || '',
     status: mappedStatus,
-    consultMemo: (rowData['사이즈'] ? `[원본사이즈: ${rowData['사이즈']}]\n` : '') + (rowData['추가상담코멘트'] || ''),
+    consultMemo: (() => {
+      const memo = rowData['추가상담코멘트'] || '';
+      const size = rowData['사이즈'] || '';
+      // 상세데이터(JSON)가 있는 경우, 이미 한번 이상 웹앱에서 관리된 데이터이므로 저장된 그대로 사용
+      if (rowData['상세계산데이터']) return memo;
+      // 레거시 데이터 로딩 시: 기존에 중복으로 붙었을 수 있는 [원본사이즈: ...] 태그들을 모두 제거하고 새로 하나만 붙임
+      const cleanedMemo = memo.replace(/\[원본사이즈:[^\]]+\]\s*/g, '').trim();
+      return size ? `[원본사이즈: ${size}]\n${cleanedMemo}` : cleanedMemo;
+    })(),
     productType: rowData['종류'] || '에코백',
     qty: parseInt(rowData['수량']) || 0,
     fabric: rowData['원단'] || '',
@@ -328,12 +336,20 @@ const mapSheetToFrontend = (rowData) => {
     orderConfirmed: rowData['오더확정'] === '확정' || !!detailData.customerInfo?.orderConfirmed,
     orderConfirmedDate: rowData['오더확정일자'] || detailData.customerInfo?.orderConfirmedDate || '',
     fabricName: detailData.fabricName || '메인 원단',
-    fabricContent: detailData.fabricContent || [
-      rowData['원단01내용'] ? `[원단01] ${rowData['원단01내용']}` : '',
-      rowData['원단02내용'] ? `[원단02] ${rowData['원단02내용']}` : ''
-    ].filter(Boolean).join('\n') || '',
+    fabricContent: (() => {
+      if (detailData.specs?.fabricContent) return detailData.specs.fabricContent;
+      const f1 = rowData['원단01내용'] || '';
+      const f2 = rowData['원단02내용'] || '';
+      // 기존 태그들 제거 후 새로 붙임
+      const cleanF1 = f1.replace(/\[원단01\]\s*/g, '').trim();
+      const cleanF2 = f2.replace(/\[원단02\]\s*/g, '').trim();
+      const build1 = cleanF1 ? `[원단01] ${cleanF1}` : '';
+      const build2 = cleanF2 ? `[원단02] ${cleanF2}` : '';
+      return [build1, build2].filter(Boolean).join('\n');
+    })(),
     comments: detailData.comments || '',
     isLegacy: !rowData['상세계산데이터'], // 상세데이터 JSON이 없으면 기존 데이터로 간주
+
     legacyResult: !rowData['상세계산데이터'] ? (() => {
       const totalCostUnit = parseInt(rowData['생산합계']) || 0;
       const deliveryUnit = parseInt(rowData['납품가']) || 0;
