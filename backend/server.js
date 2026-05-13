@@ -119,7 +119,10 @@ const mapFrontendToSheet = (data) => {
       orderConfirmedDate: data.orderConfirmedDate
     },
     extraInfo: { driveFolderId: data.driveFolderId, paymentPic: data.paymentPic,
-      paymentContact: data.paymentContact, paymentContact2: data.paymentContact2, paymentEmail: data.paymentEmail },
+      paymentContact: data.paymentContact, paymentContact2: data.paymentContact2, paymentEmail: data.paymentEmail,
+      tax1Ratio: data.tax1Ratio !== undefined ? Number(data.tax1Ratio) : 100,
+      tax2Ratio: data.tax2Ratio !== undefined ? Number(data.tax2Ratio) : 0,
+      deposit: data.deposit || 0, balance: data.balance || 0 },
     comments: data.comments || '[]'
   });
 
@@ -334,6 +337,24 @@ const mapSheetToFrontend = (rowData) => {
     ...(detailData.marginInfo || {}),
     ...(detailData.customerInfo || {}),
     ...(detailData.extraInfo || {}),
+    // tax1Ratio/tax2Ratio 명시적 복원 (JSON extraInfo 안에 저장된 값 우선, 없으면 deposit/balance에서 계산)
+    tax1Ratio: (() => {
+      const ei = detailData.extraInfo || {};
+      if (ei.tax1Ratio !== undefined) return Number(ei.tax1Ratio);
+      // 폴백: deposit/balance에서 비율 자동 계산
+      const dep = parseFloat(rowData['결제선금(완납)']) || 0;
+      const bal = parseFloat(rowData['결제잔금']) || 0;
+      const total = dep + bal;
+      return total > 0 ? Math.round((dep / total) * 100) : 100;
+    })(),
+    tax2Ratio: (() => {
+      const ei = detailData.extraInfo || {};
+      if (ei.tax2Ratio !== undefined) return Number(ei.tax2Ratio);
+      const dep = parseFloat(rowData['결제선금(완납)']) || 0;
+      const bal = parseFloat(rowData['결제잔금']) || 0;
+      const total = dep + bal;
+      return total > 0 ? Math.round((bal / total) * 100) : 0;
+    })(),
     orderConfirmed: rowData['오더확정'] === '확정' || !!detailData.customerInfo?.orderConfirmed,
     orderConfirmedDate: rowData['오더확정일자'] || detailData.customerInfo?.orderConfirmedDate || '',
     fabricName: detailData.fabricName || '메인 원단',
