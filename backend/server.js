@@ -8,7 +8,8 @@ const fs = require('fs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Google Sheets Auth
 const KEY_FILE_PATH = path.join(__dirname, '../bagorderapp-fe5c29e3e221.json');
@@ -559,11 +560,39 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// 주문 데이터 전체 업데이트 (고유번호로 행 찾기)
+// --- 실시간 동시 편집 추적 (메모리 기반) ---
+const activeEditors = {}; // { orderId: { userId: lastSeenTimestamp } }
+
+// 편집 중 신호 (Heartbeat)
+app.post('/api/orders/:id/editing', (req, res) => {
+  const { id } = req.params;
+  const { currentUser } = req.body;
+  if (!currentUser) return res.status(400).json({ error: '사용자 정보가 필요합니다.' });
+
+  if (!activeEditors[id]) activeEditors[id] = {};
+  activeEditors[id][currentUser] = Date.now();
+
+  // 15초 이상 신호가 없는 사용자 정리
+  const now = Date.now();
+  Object.keys(activeEditors[id]).forEach(user => {
+    if (now - activeEditors[id][user] > 15000) {
+      delete activeEditors[id][user];
+    }
+  });
+
+  res.json({ 
+    success: true, 
+    others: Object.keys(activeEditors[id]).filter(u => u !== currentUser) 
+  });
+});
+
+// 주문 데이터 전체 업데이트 (고유번호로 행 찾기 + 충돌 방지)
 app.put('/api/orders/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const orderData = req.body;
+    const { _lastLoadedTime, currentUser } = orderData; // 프론트에서 보낸 마지막 로드 시점
+    
     const client = await auth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: client });
 
@@ -574,6 +603,7 @@ app.put('/api/orders/:id', async (req, res) => {
     const rows = response.data.values;
     const headers = rows[0];
     const idColIndex = headers.indexOf('고유번호');
+    const modTimeColIndex = headers.indexOf('수정일시');
     
     // 2. 고유번호로 행 찾기
     let targetRowIndex = -1;
@@ -585,8 +615,21 @@ app.put('/api/orders/:id', async (req, res) => {
       return res.status(404).json({ error: `주문번호 ${id}를 찾을 수 없습니다.` });
     }
 
-    // 3. 기존 등록일자와 등록자 보존
     const existingRow = rows[targetRowIndex - 1];
+
+    // 3. 충돌 체크 (Optimistic Locking)
+    // 프론트엔드가 데이터를 가져간 이후에 시트의 '수정일시'가 변경되었는지 확인
+    const currentModTime = existingRow[modTimeColIndex] || '';
+    if (_lastLoadedTime && currentModTime && _lastLoadedTime !== currentModTime) {
+      const lastUser = existingRow[headers.indexOf('수정작업자')] || '다른 사용자';
+      return res.status(409).json({ 
+        error: 'CONFLICT', 
+        message: `${lastUser}님이 방금 데이터를 수정했습니다. 최신 내용을 불러온 후 다시 시도해 주세요.`,
+        currentModTime
+      });
+    }
+
+    // 4. 기존 등록일자와 등록자 보존
     const regDateIdx = headers.indexOf('등록일자');
     const regByIdx = headers.indexOf('등록자');
     orderData._registeredDate = existingRow[regDateIdx] || '';

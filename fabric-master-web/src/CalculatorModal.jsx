@@ -213,6 +213,38 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     fetchFactories();
   }, []);
 
+  const [othersEditing, setOthersEditing] = useState([]);
+
+  // Heartbeat Effect: 동시 편집 중인 다른 사용자 확인
+  useEffect(() => {
+    if (!item?.id) return;
+    
+    // 로컬 스토리지나 App의 currentUser 사용
+    const storedUser = localStorage.getItem('fabric_master_user') || '';
+    const userToReport = currentUser || storedUser || '익명';
+    const apiBase = `http://${window.location.hostname}:3001`;
+
+    const sendHeartbeat = async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/orders/${item.id}/editing`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentUser: userToReport })
+        });
+        const data = await res.json();
+        if (data.others) {
+          setOthersEditing(data.others);
+        }
+      } catch (err) {
+        console.error('Heartbeat failed:', err);
+      }
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 10000); // 10초마다 신호
+    return () => clearInterval(interval);
+  }, [item?.id, currentUser]);
+
   const [bagSpecs, setBagSpecs] = useState({
     productType: item?.productType || '에코백',
     fabric: item?.fabric || '',
@@ -897,6 +929,16 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
               }}>
                 {customerInfo.consultType === '신규' ? '✨ 신규 상담' : '🔄 재상담'}
               </div>
+              {othersEditing.length > 0 && (
+                <div style={{
+                  padding: '4px 12px', background: '#fff1f2', color: '#e11d48',
+                  borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid #fda4af',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}>
+                  <span style={{width: '6px', height: '6px', background: '#e11d48', borderRadius: '50%'}}></span>
+                  ⚠️ 현재 {othersEditing.join(', ')} 님이 편집 중입니다!
+                </div>
+              )}
               <div>
                 <div style={{fontSize:'12px', color:'#64748b', marginBottom:'2px', display:'flex', alignItems:'center', gap:'8px'}}>
                   주문 고유번호: <span style={{fontWeight:'700', color:'#1e293b'}}>{item?.id}</span>

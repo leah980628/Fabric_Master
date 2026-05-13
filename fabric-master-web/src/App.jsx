@@ -184,20 +184,21 @@ function App() {
   };
 
   // 앱 시작 시 Google Sheets에서 데이터 불러오기
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const res = await fetch(`${apiBase}/api/orders`);
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setItems(data);
-        }
-      } catch (err) {
-        console.error('주문 데이터 로드 실패:', err);
-      } finally {
-        setIsLoading(false);
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/orders`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setItems(data);
       }
-    };
+    } catch (err) {
+      console.error('주문 데이터 로드 실패:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
   }, []);
 
@@ -358,24 +359,37 @@ function App() {
       }
       return item;
     }));
-    setCalculatorItem(null);
+    // setCalculatorItem(null); // 하단 fetch 로직 내에서 성공 시에만 호출하도록 변경됨
 
     // Google Sheets에 저장
     try {
       const res = await fetch(`${apiBase}/api/orders/${calculatorItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedItem)
+        body: JSON.stringify({
+          ...updatedItem,
+          _lastLoadedTime: calculatorItem.updatedAt // 충돌 방지를 위한 시간값 전달
+        })
       });
       const result = await res.json();
-      if (result.success) {
+      
+      if (res.status === 409) {
+        alert('⚠️ 저장 실패: ' + result.message);
+        // 저장 실패 시 로컬 상태 복구 (원래 데이터로 유지)
+        fetchOrders();
+        return;
+      }
+
+      if (res.ok && result.success) {
         console.log('시트 저장 완료');
+        setCalculatorItem(null); // 성공 시에만 닫기
+        fetchOrders(); // 최신 데이터로 동기화
       } else {
         alert('시트 저장에 실패했습니다: ' + (result.error || ''));
       }
     } catch (err) {
       console.error('시트 저장 실패:', err);
-      alert('서버 연결에 실패했습니다. 데이터는 로컬에만 저장되었습니다.');
+      alert('서버 연결에 실패했습니다.');
     }
   };
 
