@@ -11,18 +11,60 @@ export default function OrderListModal({ items, onClose }) {
 
   // 월별 데이터 필터링
   const filteredData = useMemo(() => {
-    const baseData = items.filter(item => {
-      // 오더확정 탭일 때는 확정일자 기준(없으면 등록일), 아니면 등록일 기준
-      const dateString = (activeTab === '오더확정' ? (item.orderConfirmedDate || item.date || item._registeredDate) : (item.date || item._registeredDate)) || '';
-      return dateString.startsWith(selectedMonth);
-    });
-
     if (activeTab === '계산서발행') {
-      // 세금계산서 일자가 있는 데이터만
-      return baseData.filter(item => item.tax1 || item.tax2).sort((a, b) => b.id - a.id);
+      const splitItems = [];
+      items.forEach(item => {
+        let tax1Ratio = item.tax1Ratio !== undefined ? Number(item.tax1Ratio) : 100;
+        let tax2Ratio = item.tax2Ratio !== undefined ? Number(item.tax2Ratio) : 0;
+        
+        // 상세계산데이터 파싱 폴백 (서버에서 spread 되지 않은 경우 대비)
+        if (item.tax1Ratio === undefined && item['상세계산데이터']) {
+           try {
+             const parsed = JSON.parse(item['상세계산데이터']);
+             if (parsed.extraInfo && parsed.extraInfo.tax1Ratio !== undefined) {
+               tax1Ratio = Number(parsed.extraInfo.tax1Ratio);
+               tax2Ratio = Number(parsed.extraInfo.tax2Ratio);
+             }
+           } catch (e) {}
+        }
+
+        const baseSales = item.finalDeliveryAll || item.legacyResult?.finalDeliveryAll || 0;
+        const baseSalesVAT = item.finalDeliveryAllVAT || item.legacyResult?.finalDeliveryAllVAT || (baseSales * 1.1);
+        const baseQty = item.qty || 0;
+        
+        if (item.tax1 && item.tax1.startsWith(selectedMonth)) {
+          splitItems.push({
+            ...item,
+            id: `${item.id}(선금)`,
+            qty: Math.round(baseQty * (tax1Ratio / 100)),
+            finalDeliveryAll: baseSales * (tax1Ratio / 100),
+            finalDeliveryAllVAT: baseSalesVAT * (tax1Ratio / 100),
+            _taxDate: item.tax1,
+            _splitType: '선금'
+          });
+        }
+        
+        if (item.tax2 && item.tax2.startsWith(selectedMonth)) {
+          splitItems.push({
+            ...item,
+            id: `${item.id}(잔금)`,
+            qty: Math.round(baseQty * (tax2Ratio / 100)),
+            finalDeliveryAll: baseSales * (tax2Ratio / 100),
+            finalDeliveryAllVAT: baseSalesVAT * (tax2Ratio / 100),
+            _taxDate: item.tax2,
+            _splitType: '잔금'
+          });
+        }
+      });
+      // 정렬 시 문자열 id에서 숫자만 추출하여 내림차순 정렬
+      return splitItems.sort((a, b) => parseInt(b.id) - parseInt(a.id));
     } else {
-      // 오더확정 체크된 데이터만
-      return baseData.filter(item => item.orderConfirmed).sort((a, b) => b.id - a.id);
+      // 오더확정 탭일 때는 확정일자 기준(없으면 등록일)
+      const baseData = items.filter(item => {
+        const dateString = item.orderConfirmedDate || item.date || item._registeredDate || '';
+        return dateString.startsWith(selectedMonth) && item.orderConfirmed;
+      });
+      return baseData.sort((a, b) => b.id - a.id);
     }
   }, [items, selectedMonth, activeTab]);
 
@@ -92,7 +134,7 @@ export default function OrderListModal({ items, onClose }) {
           결제상태: item.status || '',
           담당자: item.pic || '',
           연락처: item.contact || '',
-          계산서일자: item.tax1 || item.tax2 || '',
+          계산서일자: activeTab === '오더확정' ? (item.tax1 || item.tax2 || '') : (item._taxDate || ''),
           확정일자: item.orderConfirmedDate || '',
           비고: item.consultMemo || '',
           공장: item.factory || '',
@@ -271,7 +313,7 @@ export default function OrderListModal({ items, onClose }) {
                         }}>{sales > 0 ? (margin / sales * 100).toFixed(1) + '%' : '0%'}</span>
                       </td>
                       <td style={{padding: '12px 10px', textAlign: 'center', color: '#64748b'}}>
-                        {activeTab === '오더확정' ? (item.orderConfirmedDate || '-') : (item.tax1 || item.tax2 || '-')}
+                        {activeTab === '오더확정' ? (item.orderConfirmedDate || '-') : (item._taxDate || '-')}
                       </td>
                     </tr>
                   );

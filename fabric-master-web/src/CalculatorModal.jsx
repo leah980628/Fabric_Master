@@ -160,7 +160,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   const [extraInfo, setExtraInfo] = useState(() => initFromItem({
     paymentMethod: '계좌이체', tax1: '', tax2: '', paymentContent: '',
     paymentPic: '', paymentContact: '', paymentContact2: '', paymentEmail: '',
-    deposit: 0, balance: 0,
+    deposit: 0, balance: 0, tax1Ratio: 100, tax2Ratio: 0,
     driveLink: '', driveFolderId: '', proofImage: '',
     deliveryAddress: '', workOrderDate: '', prodCheck: '',
     factoryShipDate: '', trackingNum: '',
@@ -592,7 +592,35 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
   const handleExtraInfoChange = (e) => {
     const { name, value } = e.target;
-    setExtraInfo(prev => ({ ...prev, [name]: value }));
+    setExtraInfo(prev => {
+      const next = { ...prev, [name]: value };
+      
+      // 선금이나 잔금이 변경되면 비율 자동 계산
+      if (name === 'deposit' || name === 'balance') {
+        const dep = parseFloat(next.deposit) || 0;
+        const bal = parseFloat(next.balance) || 0;
+        const total = dep + bal;
+        if (total > 0) {
+          next.tax1Ratio = Math.round((dep / total) * 100);
+          next.tax2Ratio = 100 - next.tax1Ratio;
+        } else {
+          next.tax1Ratio = 100;
+          next.tax2Ratio = 0;
+        }
+      }
+      
+      // 수동으로 비율 조정 시 상호 연동
+      if (name === 'tax1Ratio') {
+        const ratio = parseFloat(value) || 0;
+        next.tax2Ratio = Math.max(0, 100 - ratio);
+      }
+      if (name === 'tax2Ratio') {
+        const ratio = parseFloat(value) || 0;
+        next.tax1Ratio = Math.max(0, 100 - ratio);
+      }
+      
+      return next;
+    });
   };
 
   const handleMarginPercentChange = (e) => {
@@ -2354,20 +2382,34 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
 
                 <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
                   <div className="form-group">
-                    <label>세금계산서 1 (발행일/예정일)</label>
-                    <div style={{display:'flex', gap:'8px'}}>
+                    <label>세금계산서 1 (발행일/예정일) 및 집계 비율</label>
+                    <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
                       <input type="date" name="tax1" value={extraInfo.tax1} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} />
+                      <div style={{display:'flex', alignItems:'center', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'0 8px'}}>
+                        <input type="number" name="tax1Ratio" value={extraInfo.tax1Ratio} onChange={handleExtraInfoChange} style={{width:'40px', border:'none', background:'transparent', textAlign:'right', outline:'none', fontWeight:600}} />
+                        <span style={{color:'#64748b', fontSize:'13px', marginLeft:'4px'}}>%</span>
+                      </div>
+                      <div style={{fontSize:'12px', color:'#4f46e5', fontWeight:700, width:'80px', textAlign:'right'}}>
+                        ₩ {Math.round((result.finalDeliveryAllVAT || 0) * ((parseFloat(extraInfo.tax1Ratio) || 0) / 100)).toLocaleString()}
+                      </div>
                       {extraInfo.tax1 && (
-                        <button onClick={() => setExtraInfo(prev => ({...prev, tax1: ''}))} style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                        <button onClick={() => setExtraInfo(prev => ({...prev, tax1: ''}))} style={{padding:'8px 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
                       )}
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>세금계산서 2 (발행일/예정일)</label>
-                    <div style={{display:'flex', gap:'8px'}}>
+                    <label>세금계산서 2 (발행일/예정일) 및 집계 비율</label>
+                    <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
                       <input type="date" name="tax2" value={extraInfo.tax2} onChange={handleExtraInfoChange} className="form-control" style={{flex:1}} />
+                      <div style={{display:'flex', alignItems:'center', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:'8px', padding:'0 8px'}}>
+                        <input type="number" name="tax2Ratio" value={extraInfo.tax2Ratio} onChange={handleExtraInfoChange} style={{width:'40px', border:'none', background:'transparent', textAlign:'right', outline:'none', fontWeight:600}} />
+                        <span style={{color:'#64748b', fontSize:'13px', marginLeft:'4px'}}>%</span>
+                      </div>
+                      <div style={{fontSize:'12px', color:'#4f46e5', fontWeight:700, width:'80px', textAlign:'right'}}>
+                        ₩ {Math.round((result.finalDeliveryAllVAT || 0) * ((parseFloat(extraInfo.tax2Ratio) || 0) / 100)).toLocaleString()}
+                      </div>
                       {extraInfo.tax2 && (
-                        <button onClick={() => setExtraInfo(prev => ({...prev, tax2: ''}))} style={{padding:'0 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
+                        <button onClick={() => setExtraInfo(prev => ({...prev, tax2: ''}))} style={{padding:'8px 12px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', cursor:'pointer', fontSize:'12px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600}}>지우기</button>
                       )}
                     </div>
                   </div>
