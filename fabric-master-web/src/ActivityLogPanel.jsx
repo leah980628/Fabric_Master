@@ -8,7 +8,8 @@ export default function ActivityLogPanel({ isOpen, onClose }) {
     if (!isOpen) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/logs');
+      const apiBase = `http://${window.location.hostname}:3001`;
+      const res = await fetch(`${apiBase}/api/logs`);
       if (res.ok) {
         const data = await res.json();
         setLogs(data);

@@ -546,7 +546,10 @@ function App() {
       )}
 
       {isLogOpen && (
-        <ActivityLogPanel onClose={() => setIsLogOpen(false)} />
+        <ActivityLogPanel 
+          isOpen={isLogOpen} 
+          onClose={() => setIsLogOpen(false)} 
+        />
       )}
 
       {isConsultOpen && (

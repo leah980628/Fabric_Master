@@ -376,6 +376,23 @@ async function logActivity(currentUser, action, company, orderId, details) {
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: client });
+
+    // 1. 헤더 확인 및 초기화 (시트가 비어있으면 헤더 삽입)
+    const checkRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: MASTER_SHEET_ID,
+      range: '활동로그!A1:F1',
+    });
+    
+    if (!checkRes.data.values || checkRes.data.values.length === 0) {
+      const headers = ['일시', '작업자', '액션', '업체명', '주문ID', '상세내용'];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: MASTER_SHEET_ID,
+        range: '활동로그!A1:F1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [headers] },
+      });
+    }
+
     const now = new Date();
     // KST 시간대 변환 (로컬 시간이 KST가 아닐 경우 대비)
     const offset = now.getTimezoneOffset() * 60000;
