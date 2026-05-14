@@ -1704,6 +1704,178 @@ app.get('/api/drive/image/:fileId', async (req, res) => {
     }
   });
 
+  // 거래명세서 발행 (구글 시트 템플릿 기반)
+  app.post('/api/delivery-note/generate', async (req, res) => {
+    try {
+      const { folderId, orderData } = req.body;
+      const templateId = '17ZmATV4fYI53N4eDJLiq0v9yApiULtBU'; // 사용자가 제공한 거래명세서 템플릿
+      const client = await auth.getClient();
+      const drive = google.drive({ version: 'v3', auth: client });
+      const sheets = google.sheets({ version: 'v4', auth: client });
+
+      // 1. 제목 결정
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const datePrefix = `${yy}${mm}${dd}`;
+      const baseTitle = `${datePrefix}_${orderData.company || '신규'}_거래명세서`;
+      
+      let finalTitle = baseTitle;
+      if (folderId) {
+        const query = `'${folderId}' in parents and name contains '${baseTitle}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
+        const existingFiles = await drive.files.list({
+          q: query,
+          fields: 'files(name)',
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
+          corpora: 'allDrives'
+        });
+        const count = existingFiles.data.files.length;
+        if (count > 0) {
+          finalTitle = `${baseTitle}_${String(count).padStart(2, '0')}`;
+        }
+      }
+
+      // 2. 템플릿 복사
+      const copyParams = {
+        fileId: templateId,
+        requestBody: { 
+          name: finalTitle,
+          mimeType: 'application/vnd.google-apps.spreadsheet'
+        },
+        supportsAllDrives: true
+      };
+      if (folderId) {
+        copyParams.requestBody.parents = [folderId];
+      }
+      
+      const copiedFile = await drive.files.copy(copyParams);
+      const newSheetId = copiedFile.data.id;
+
+      // 3. 데이터 기입 (구글 시트 셀 업데이트)
+      const toKoreanNumber = (num) => {
+        if (num === 0) return '영';
+        const units = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+        const tens = ['', '십', '백', '천'];
+        const bigs = ['', '만', '억', '조'];
+        let result = '';
+        let numStr = String(Math.floor(num));
+        
+        for (let i = 0; i < numStr.length; i++) {
+          let digit = parseInt(numStr.charAt(numStr.length - 1 - i));
+          let ten = i % 4;
+          let big = Math.floor(i / 4);
+          
+          if (ten === 0 && i > 0) {
+            let chunk = numStr.slice(Math.max(0, numStr.length - i - 4), numStr.length - i);
+            if (parseInt(chunk) > 0) {
+              result = bigs[big] + result;
+            }
+          }
+          
+          if (digit > 0) {
+            result = units[digit] + tens[ten] + result;
+          }
+        }
+        return result;
+      };
+
+      const finalAmount = orderData.finalAmount || 0;
+      const amountStr = `일금 ${toKoreanNumber(finalAmount)}원정`;
+
+      // 발행 날짜 (전달받은 날짜 또는 현재 날짜)
+      const dateObj = orderData.issueDate || { 
+        year: new Date().getFullYear(), 
+        month: new Date().getMonth() + 1, 
+        day: new Date().getDate() 
+      };
+      const { year: y, month: m, day: d } = dateObj;
+      const fullDateStr = `${y}년 ${m}월 ${d}일`;
+
+      const updateData = [
+        // 공급받는자용 (왼쪽)
+        { range: '거래명세서!B2', values: [[fullDateStr]] },
+        { range: '거래명세서!E2', values: [[' ']] }, // 기존 월 위치 초기화
+        { range: '거래명세서!H2', values: [['공급자']] }, // 공급자 텍스트 추가
+        { range: '거래명세서!A5', values: [[orderData.company || '']] },
+        { range: '거래명세서!C7', values: [[amountStr]] }, // 합계 (한글)
+        { range: '거래명세서!I7', values: [[' ']] }, // 우측 텍스트 정리 (원정)
+        { range: '거래명세서!L7', values: [[' ']] }, // 우측 텍스트 정리 (원))
+        { range: '거래명세서!A9', values: [[`${m}/${d}`]] }, // 일자
+        { range: '거래명세서!B9', values: [[orderData.productType || '에코백']] }, // 내역 (품목)
+        { range: '거래명세서!F9', values: [[' ']] }, // Box 수량 (비우기)
+        { range: '거래명세서!H9', values: [[orderData.qty || 0]] }, // 수량
+        { range: '거래명세서!I9', values: [[orderData.unitPrice || 0]] }, // 단가
+        { range: '거래명세서!J9', values: [[orderData.totalAmount || 0]] }, // 금액 (단가*수량)
+        { range: '거래명세서!L9', values: [[orderData.vat || 0]] }, // 세액 (부가세)
+
+        // 공급자 보관용 (오른쪽) - 모두 왼쪽 열 + 14칸 (A->O, B->P, C->Q ...)
+        { range: '거래명세서!P2', values: [[fullDateStr]] }, // B -> P
+        { range: '거래명세서!S2', values: [[' ']] }, // E -> S
+        { range: '거래명세서!O5', values: [[orderData.company || '']] }, // A -> O
+        { range: '거래명세서!Q7', values: [[amountStr]] }, // C -> Q
+        { range: '거래명세서!W7', values: [[' ']] }, // I -> W (텍스트 정리)
+        { range: '거래명세서!Z7', values: [[' ']] }, // L -> Z (텍스트 정리)
+        { range: '거래명세서!X7', values: [[orderData.finalAmount || 0]] }, // J -> X (우측 총금액 강제 일치)
+        { range: '거래명세서!O9', values: [[`${m}/${d}`]] }, // A -> O
+        { range: '거래명세서!P9', values: [[orderData.productType || '에코백']] }, // B -> P
+        { range: '거래명세서!T9', values: [[' ']] }, // F -> T
+        { range: '거래명세서!V9', values: [[orderData.qty || 0]] }, // H -> V
+        { range: '거래명세서!W9', values: [[orderData.unitPrice || 0]] }, // I -> W
+        { range: '거래명세서!X9', values: [[orderData.totalAmount || 0]] }, // J -> X
+        { range: '거래명세서!Z9', values: [[orderData.vat || 0]] } // L -> Z (누락된 우측 세액!)
+      ];
+
+      for (const update of updateData) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: newSheetId,
+          range: update.range,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: update.values }
+        });
+      }
+
+      const exportRes = await drive.files.export({
+        fileId: newSheetId,
+        mimeType: 'application/pdf'
+      }, { responseType: 'stream' });
+
+      const pdfFileParams = {
+        requestBody: {
+          name: finalTitle,
+          mimeType: 'application/pdf'
+        },
+        media: {
+          mimeType: 'application/pdf',
+          body: exportRes.data
+        },
+        fields: 'id, webViewLink',
+        supportsAllDrives: true
+      };
+      if (folderId) {
+        pdfFileParams.requestBody.parents = [folderId];
+      }
+      
+      const pdfFile = await drive.files.create(pdfFileParams);
+      const sheetFile = await drive.files.get({
+        fileId: newSheetId,
+        fields: 'webViewLink',
+        supportsAllDrives: true
+      });
+
+      res.json({
+        success: true,
+        webViewLink: sheetFile.data.webViewLink,
+        pdfLink: pdfFile.data.webViewLink
+      });
+
+    } catch (error) {
+      console.error('거래명세서 발행 에러:', error);
+      res.status(500).json({ error: '거래명세서 발행에 실패했습니다.', details: error.message });
+    }
+  });
+
 app.post('/api/calendar/event', async (req, res) => {
   console.log('캘린더 요청 수신:', req.body);
   try {

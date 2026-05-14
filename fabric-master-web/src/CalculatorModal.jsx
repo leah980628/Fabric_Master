@@ -331,6 +331,9 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
   // 기존 데이터 모드: 계산기가 초기 실행 시 덮어쓰지 않도록 보호
   const [isLegacyLocked, setIsLegacyLocked] = useState(item?.isLegacy || false);
 
+  const [isGeneratingEstimate, setIsGeneratingEstimate] = useState(false);
+  const [isGeneratingDeliveryNote, setIsGeneratingDeliveryNote] = useState(false);
+
   const handleSpecChange = (e) => {
     const { name, value } = e.target;
     const numVal = parseFloat(value) || 0;
@@ -498,6 +501,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
       return;
     }
     
+    setIsGeneratingEstimate(true);
     try {
       const orderData = {
         company: customerInfo.company,
@@ -535,6 +539,56 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
     } catch (err) {
       console.error(err);
       alert('서버 연결에 실패했습니다.');
+    } finally {
+      setIsGeneratingEstimate(false);
+    }
+  };
+
+  const handleGenerateDeliveryNote = async () => {
+    if (!extraInfo.driveFolderId) {
+      alert("먼저 구글 드라이브 폴더를 생성해주세요 (결제 및 추가정보 탭).");
+      return;
+    }
+    
+    setIsGeneratingDeliveryNote(true);
+    try {
+      const now = new Date();
+      const orderData = {
+        company: customerInfo.company,
+        productType: bagSpecs.productType || '에코백', // 에코백/파우치 구분
+        fabric: specs.fabricName,
+        size: `W: ${specs.w} x H: ${specs.h} x D: ${specs.d}`,
+        qty: specs.qty,
+        unitPrice: result.finalDeliveryUnit,
+        totalAmount: result.finalDeliveryAll,
+        vat: result.finalDeliveryAllVAT - result.finalDeliveryAll,
+        finalAmount: result.finalDeliveryAllVAT,
+        issueDate: {
+          year: now.getFullYear(),
+          month: now.getMonth() + 1,
+          day: now.getDate()
+        }
+      };
+
+      const apiBase = `http://${window.location.hostname}:3001`;
+      const response = await fetch(`${apiBase}/api/delivery-note/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: extraInfo.driveFolderId, orderData })
+      });
+
+      const resData = await response.json();
+      if (resData.success) {
+        alert("거래명세서가 성공적으로 발행되었습니다!");
+        window.open(resData.pdfLink, '_blank');
+      } else {
+        alert(`거래명세서 발행 실패: ${resData.error || '알 수 없는 오류'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('서버 연결에 실패했습니다.');
+    } finally {
+      setIsGeneratingDeliveryNote(false);
     }
   };
 
@@ -2519,8 +2573,17 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
         <div className="modal-footer-container">
             <button 
               className="modal-footer-btn-secondary"
-              onClick={handleGenerateEstimate}>
-              📄 견적서 발행 (PDF)
+              style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', marginRight: '8px', opacity: isGeneratingEstimate ? 0.7 : 1, cursor: isGeneratingEstimate ? 'wait' : 'pointer' }}
+              onClick={handleGenerateEstimate}
+              disabled={isGeneratingEstimate}>
+              {isGeneratingEstimate ? '⏳ 견적서 생성 중...' : '📄 견적서 발행 (PDF)'}
+            </button>
+            <button 
+              className="modal-footer-btn-secondary"
+              style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', marginRight: 'auto', opacity: isGeneratingDeliveryNote ? 0.7 : 1, cursor: isGeneratingDeliveryNote ? 'wait' : 'pointer' }}
+              onClick={handleGenerateDeliveryNote}
+              disabled={isGeneratingDeliveryNote}>
+              {isGeneratingDeliveryNote ? '⏳ 명세서 생성 중...' : '📄 거래명세서 발행 (PDF)'}
             </button>
             <button 
               className="modal-footer-btn-primary"
