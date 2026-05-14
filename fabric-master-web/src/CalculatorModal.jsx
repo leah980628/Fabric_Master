@@ -40,6 +40,7 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
       fabricName: "메인 원단",
       fabricContent: "",
       w: 0, h: 0, d: 0, sideD: 0,
+      sideH: '', sideTopSeam: '', sideBottomSeam: '', sideSideSeam: '',
       qty: 100, fabricWidth: 63, fabricPrice: 0,
       topSeam: 6, bottomSeam: 1.5, sideSeam: 1.5, loss: 3,
       useSeparateBodyFabric: false,
@@ -783,9 +784,18 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
           addToGroup(f1.supplier, f1.name, yard1, f1.width, f1.price);
 
           const f2 = getBodyFabric('partB');
-          const pw2 = s.sideD + (s.sideSeam * 2);
-          const ph2 = s.h + s.topSeam + s.bottomSeam;
-          const yard2 = calculatePartYard(pw2, ph2, null, f2);
+          // 옆면 전용 사이즈 및 시접 (입력값 없으면 메인 스펙 상속)
+          const sideH = s.sideH !== '' && s.sideH !== undefined && s.sideH !== null ? parseFloat(s.sideH) : s.h;
+          const sideTopSeam = s.sideTopSeam !== '' && s.sideTopSeam !== undefined && s.sideTopSeam !== null ? parseFloat(s.sideTopSeam) : s.topSeam;
+          const sideBottomSeam = s.sideBottomSeam !== '' && s.sideBottomSeam !== undefined && s.sideBottomSeam !== null ? parseFloat(s.sideBottomSeam) : s.bottomSeam;
+          const sideSideSeam = s.sideSideSeam !== '' && s.sideSideSeam !== undefined && s.sideSideSeam !== null ? parseFloat(s.sideSideSeam) : s.sideSeam;
+
+          // 옆면 1장의 가로(폭) = 옆면폭 + (좌우 시접)
+          const pw2 = s.sideD + (sideSideSeam * 2);
+          // 옆면 1장의 세로(높이) = 세로길이 + (상하 시접)
+          const ph2 = sideH + sideTopSeam + sideBottomSeam;
+          // 옆면은 좌, 우 총 2장이 들어가므로 소요량에 * 2
+          const yard2 = calculatePartYard(pw2, ph2, null, f2) * 2;
           addToGroup(f2.supplier, f2.name, yard2, f2.width, f2.price);
 
           bodyNetYard = yard1 + yard2;
@@ -799,8 +809,13 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
           const yard1 = calculatePartYard(pw12, ph12, null, f1);
           const yard2 = calculatePartYard(pw12, ph12, null, f2);
           
-          const pw3 = s.sideD + (s.sideSeam * 2);
-          const ph3 = (s.h * 2) + s.w + s.topSeam + s.bottomSeam;
+          // 옆면 전용 사이즈 및 시접 (입력값 없으면 메인 스펙 상속)
+          const sideH = s.sideH !== '' && s.sideH !== undefined && s.sideH !== null ? parseFloat(s.sideH) : s.h;
+          const sideTopSeam = s.sideTopSeam !== '' && s.sideTopSeam !== undefined && s.sideTopSeam !== null ? parseFloat(s.sideTopSeam) : s.topSeam;
+          const sideSideSeam = s.sideSideSeam !== '' && s.sideSideSeam !== undefined && s.sideSideSeam !== null ? parseFloat(s.sideSideSeam) : s.sideSeam;
+
+          const pw3 = s.sideD + (sideSideSeam * 2);
+          const ph3 = (sideH * 2) + s.w + (sideTopSeam * 2);
           const yard3 = calculatePartYard(pw3, ph3, null, f3);
           
           addToGroup(f1.supplier, f1.name, yard1, f1.width, f1.price);
@@ -1586,10 +1601,35 @@ export default function CalculatorModal({ item, onClose, onSave, onCopy, onDelet
                   </div>
 
                   <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'12px'}}>
-                    <div className="form-group" style={{margin:0}}><label>시접 상단(cm)</label><input type="number" name="topSeam" value={specs.topSeam} onChange={handleSpecChange} className="form-control"/></div>
-                    <div className="form-group" style={{margin:0}}><label>시접 하단(cm)</label><input type="number" name="bottomSeam" value={specs.bottomSeam} onChange={handleSpecChange} className="form-control"/></div>
-                    <div className="form-group" style={{margin:0}}><label>시접 좌우(cm)</label><input type="number" name="sideSeam" value={specs.sideSeam} onChange={handleSpecChange} className="form-control"/></div>
+                    <div className="form-group" style={{margin:0}}><label>메인 시접 상단(cm)</label><input type="number" name="topSeam" value={specs.topSeam} onChange={handleSpecChange} className="form-control"/></div>
+                    <div className="form-group" style={{margin:0}}><label>메인 시접 하단(cm)</label><input type="number" name="bottomSeam" value={specs.bottomSeam} onChange={handleSpecChange} className="form-control"/></div>
+                    <div className="form-group" style={{margin:0}}><label>메인 시접 좌우(cm)</label><input type="number" name="sideSeam" value={specs.sideSeam} onChange={handleSpecChange} className="form-control"/></div>
                   </div>
+                  
+                  {showSideD && (
+                    <div style={{marginTop:'12px', padding:'10px', background:'#f1f5f9', borderRadius:'6px', border:'1px dashed #cbd5e1'}}>
+                      <div style={{fontSize:'13px', fontWeight:600, color:'#475569', marginBottom:'8px'}}>옆면 상세 설정 (빈칸 시 상속값 적용)</div>
+                      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'8px'}}>
+                        <div className="form-group" style={{margin:0}}>
+                          <label>옆면 세로(H)</label>
+                          <input type="number" name="sideH" value={specs.sideH} onChange={handleSpecChange} placeholder={`상속: ${specs.h || 0}`} className="form-control" style={{fontSize:'12px'}}/>
+                        </div>
+                        <div className="form-group" style={{margin:0}}>
+                          <label>옆면 윗시접</label>
+                          <input type="number" name="sideTopSeam" value={specs.sideTopSeam} onChange={handleSpecChange} placeholder={`상속: ${specs.topSeam || 0}`} className="form-control" style={{fontSize:'12px'}}/>
+                        </div>
+                        <div className="form-group" style={{margin:0}}>
+                          <label>옆면 아랫시접</label>
+                          <input type="number" name="sideBottomSeam" value={specs.sideBottomSeam} onChange={handleSpecChange} placeholder={`상속: ${specs.bottomSeam || 0}`} className="form-control" style={{fontSize:'12px'}}/>
+                        </div>
+                        <div className="form-group" style={{margin:0}}>
+                          <label>옆면 옆시접</label>
+                          <input type="number" name="sideSideSeam" value={specs.sideSideSeam} onChange={handleSpecChange} placeholder={`상속: ${specs.sideSeam || 0}`} className="form-control" style={{fontSize:'12px'}}/>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="form-group" style={{margin:0, marginTop:'8px'}}><label>로스율(%)</label><input type="number" name="loss" value={specs.loss} onChange={handleSpecChange} className="form-control"/></div>
                   <div style={{marginTop:'12px', fontSize:'13px', color:'#10b981', fontWeight:'700', padding:'8px', background:'#ecfdf5', borderRadius:'4px', border:'1px solid #a7f3d0', display:'inline-block'}}>
                     → 메인 원단 소요: {result.bodyNetYard || 0} yard/개

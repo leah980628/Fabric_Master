@@ -93,6 +93,7 @@ const mapFrontendToSheet = (data) => {
   // 세부 계산 파라미터 (시트 컬럼에 없는 데이터를 JSON으로 보존)
   const detailCalcData = JSON.stringify({
     specs: { type: data.type, w: data.w, h: data.h, d: data.d, sideD: data.sideD, 
+             sideH: data.sideH, sideTopSeam: data.sideTopSeam, sideBottomSeam: data.sideBottomSeam, sideSideSeam: data.sideSideSeam,
              fabricWidth: data.fabricWidth, topSeam: data.topSeam, bottomSeam: data.bottomSeam,
              sideSeam: data.sideSeam, loss: data.loss, useSeparateBodyFabric: data.useSeparateBodyFabric,
              bodyParts: data.bodyParts, fabricName: data.fabricName, fabricContent: data.fabricContent },
